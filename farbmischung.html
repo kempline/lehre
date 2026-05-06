@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interaktive Farbmischung</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f3;
+    color: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111; color: #f0f0ee; }
+    .card { background: #1c1c1c; border-color: #333; }
+    .mode-btn { border-color: #444; color: #aaa; }
+    .mode-btn.active { background: #2a2a2a; color: #f0f0ee; border-color: #666; }
+    .overlap-row { background: #222; }
+    .info-chip { background: #222; }
+    .info-chip strong { color: #f0f0ee; }
+    .info-chip span { color: #888; }
+    .canvas-wrap { border-color: #333; }
+    label, .ctrl-label { color: #888; }
+  }
+  .card {
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 16px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 720px;
+  }
+  h1 {
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 1.25rem;
+    color: inherit;
+  }
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .mode-btn {
+    padding: 6px 18px;
+    border: 0.5px solid #ccc;
+    border-radius: 8px;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .mode-btn.active { background: #f0f0ee; color: #1a1a1a; border-color: #999; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem; }
+  .ctrl { display: flex; flex-direction: column; gap: 6px; }
+  .ctrl-label { font-size: 12px; font-weight: 500; color: #666; display: flex; justify-content: space-between; }
+  .ctrl-label span { font-weight: 400; }
+  input[type=range] { width: 100%; cursor: pointer; }
+  .r-ctrl input { accent-color: #ff4444; }
+  .g-ctrl input { accent-color: #44cc44; }
+  .b-ctrl input { accent-color: #4488ff; }
+  .overlap-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 1rem; padding: 10px 14px;
+    background: #f5f5f3; border-radius: 8px;
+  }
+  .overlap-row label { font-size: 13px; color: #666; white-space: nowrap; }
+  .overlap-row input { flex: 1; }
+  .overlap-row span { font-size: 13px; font-weight: 500; min-width: 36px; text-align: right; }
+  .canvas-wrap { border: 0.5px solid #ddd; border-radius: 12px; overflow: hidden; background: #111; }
+  canvas { display: block; width: 100%; height: auto; }
+  .info-row { display: flex; gap: 8px; margin-top: 1rem; }
+  .info-chip { flex: 1; background: #f5f5f3; border-radius: 8px; padding: 8px 10px; text-align: center; }
+  .info-chip strong { display: block; font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .info-chip span { font-size: 11px; color: #888; }
+  .footer { margin-top: 1.25rem; font-size: 11px; color: #aaa; text-align: center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Interaktive Farbmischung</h1>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-add" onclick="setMode('additive')">Additiv (Licht)</button>
+    <button class="mode-btn" id="btn-sub" onclick="setMode('subtractive')">Subtraktiv (Farbe)</button>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl r-ctrl">
+      <div class="ctrl-label" id="lbl-r">Rot <span id="val-r">100%</span></div>
+      <input type="range" min="0" max="100" value="100" step="1" id="sl-r" oninput="update()">
+    </div>
+    <div class="ctrl g-ctrl">
+      <div class="ctrl-label" id="lbl-g">Grün <span id="val-g">100%</span></div>
+      <input type="range" min="0" max="100" value="100" step="1" id="sl-g" oninput="update()">
+    </div>
+    <div class="ctrl b-ctrl">
+      <div class="ctrl-label" id="lbl-b">Blau <span id="val-b">100%</span></div>
+      <input type="range" min="0" max="100" value="100" step="1" id="sl-b" oninput="update()">
+    </div>
+  </div>
+
+  <div class="overlap-row">
+    <label>Überlappung</label>
+    <input type="range" min="0" max="100" value="33" step="1" id="sl-overlap" oninput="update()">
+    <span id="val-overlap">33%</span>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="cv" width="680" height="400"></canvas>
+  </div>
+
+  <div class="info-row">
+    <div class="info-chip"><strong id="chip-center">–</strong><span>Mitte</span></div>
+    <div class="info-chip"><strong id="chip-rg">–</strong><span>1 + 2</span></div>
+    <div class="info-chip"><strong id="chip-gb">–</strong><span>2 + 3</span></div>
+    <div class="info-chip"><strong id="chip-rb">–</strong><span>1 + 3</span></div>
+  </div>
+
+  <p class="footer">Additive Mischung: RGB-Licht auf dunkler Fläche · Subtraktive Mischung: CMY-Pigmente auf weißer Fläche</p>
+</div>
+
+<script>
+let mode = 'additive';
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-add').classList.toggle('active', m === 'additive');
+  document.getElementById('btn-sub').classList.toggle('active', m === 'subtractive');
+  updateLabels();
+  update();
+}
+
+function updateLabels() {
+  const labels = mode === 'additive' ? ['Rot','Grün','Blau'] : ['Cyan','Magenta','Gelb'];
+  ['r','g','b'].forEach((c,i) => {
+    const el = document.getElementById('lbl-' + c);
+    el.childNodes[0].textContent = labels[i] + ' ';
+  });
+}
+
+function update() {
+  const r  = parseInt(document.getElementById('sl-r').value) / 100;
+  const g  = parseInt(document.getElementById('sl-g').value) / 100;
+  const b  = parseInt(document.getElementById('sl-b').value) / 100;
+  const ov = parseInt(document.getElementById('sl-overlap').value) / 100;
+  document.getElementById('val-r').textContent = Math.round(r*100) + '%';
+  document.getElementById('val-g').textContent = Math.round(g*100) + '%';
+  document.getElementById('val-b').textContent = Math.round(b*100) + '%';
+  document.getElementById('val-overlap').textContent = Math.round(ov*100) + '%';
+  draw(r, g, b, ov);
+}
+
+function draw(r, g, b, ov) {
+  const cv  = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const W = 680, H = 400;
+  ctx.clearRect(0, 0, W, H);
+
+  if (mode === 'subtractive') {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+    const mx = 24, my = 24;
+    ctx.fillStyle = '#f0f0ee';
+    roundRect(ctx, mx, my, W - mx*2, H - my*2, 10);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const cx = W / 2, cy = H / 2 + 14;
+  const spotR = 140;
+  const dist  = spotR * 2 * (1 - ov) * 0.85 + spotR * 0.05;
+
+  const a1 = -Math.PI/2;
+  const a2 = -Math.PI/2 + 2*Math.PI/3;
+  const a3 = -Math.PI/2 + 4*Math.PI/3;
+
+  const p1 = { x: cx + dist*Math.cos(a1), y: cy + dist*Math.sin(a1) };
+  const p2 = { x: cx + dist*Math.cos(a2), y: cy + dist*Math.sin(a2) };
+  const p3 = { x: cx + dist*Math.cos(a3), y: cy + dist*Math.sin(a3) };
+
+  if (mode === 'additive') {
+    drawAdditive(ctx, p1, p2, p3, spotR, r, g, b);
+  } else {
+    drawSubtractive(ctx, p1, p2, p3, spotR, r, g, b);
+  }
+
+  drawFixtures(ctx, p1, p2, p3, [a1,a2,a3], r, g, b);
+  updateChips(r, g, b);
+}
+
+function drawAdditive(ctx, p1, p2, p3, spotR, r, g, b) {
+  function spot(p, col, intensity) {
+    if (intensity === 0) return;
+    const [cr,cg,cb] = col;
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, spotR);
+    grad.addColorStop(0,   `rgba(${Math.round(cr*intensity)},${Math.round(cg*intensity)},${Math.round(cb*intensity)},0.95)`);
+    grad.addColorStop(0.5, `rgba(${Math.round(cr*intensity)},${Math.round(cg*intensity)},${Math.round(cb*intensity)},0.65)`);
+    grad.addColorStop(1,   `rgba(${Math.round(cr*intensity)},${Math.round(cg*intensity)},${Math.round(cb*intensity)},0)`);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, spotR, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  spot(p1, [255,0,0], r);
+  spot(p2, [0,255,0], g);
+  spot(p3, [0,0,255], b);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawSubtractive(ctx, p1, p2, p3, spotR, r, g, b) {
+  function spot(p, col, intensity) {
+    if (intensity === 0) return;
+    const [cr,cg,cb] = col;
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, spotR);
+    grad.addColorStop(0,   `rgba(${cr},${cg},${cb},${intensity*0.9})`);
+    grad.addColorStop(0.5, `rgba(${cr},${cg},${cb},${intensity*0.55})`);
+    grad.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, spotR, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  spot(p1, [0,200,200], r);
+  spot(p2, [200,0,200], g);
+  spot(p3, [220,220,0], b);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawFixtures(ctx, p1, p2, p3, angles, r, g, b) {
+  const cols = mode === 'additive'
+    ? ['#ff5555','#44dd44','#5599ff']
+    : ['#00cccc','#cc00cc','#cccc00'];
+  const intensities = [r, g, b];
+  const pts = [p1, p2, p3];
+
+  pts.forEach((p, i) => {
+    if (intensities[i] === 0) return;
+    const hx = p.x + Math.cos(angles[i]) * 22;
+    const hy = p.y + Math.sin(angles[i]) * 22;
+
+    ctx.save();
+    const beam = ctx.createLinearGradient(hx, hy, p.x, p.y);
+    const alpha = Math.round(intensities[i] * 70).toString(16).padStart(2,'0');
+    beam.addColorStop(0, cols[i] + alpha);
+    beam.addColorStop(1, cols[i] + '00');
+    ctx.strokeStyle = beam;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#1e1e1e';
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(hx, hy, 8, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = cols[i];
+    ctx.globalAlpha = intensities[i];
+    ctx.beginPath();
+    ctx.arc(hx, hy, 5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function toHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('');
+}
+
+function addMix(c1,i1,c2,i2) {
+  return [0,1,2].map(ch => Math.min(255, Math.round(c1[ch]*i1 + c2[ch]*i2)));
+}
+function addMix3(c1,i1,c2,i2,c3,i3) {
+  return [0,1,2].map(ch => Math.min(255, Math.round(c1[ch]*i1 + c2[ch]*i2 + c3[ch]*i3)));
+}
+function subMix(c1,i1,c2,i2) {
+  return [0,1,2].map(ch => {
+    let v = 255;
+    if(i1>0) v *= (255-(255-c1[ch])*i1)/255;
+    if(i2>0) v *= (255-(255-c2[ch])*i2)/255;
+    return Math.round(Math.max(0,Math.min(255,v)));
+  });
+}
+function subMix3(c1,i1,c2,i2,c3,i3) {
+  return [0,1,2].map(ch => {
+    let v = 255;
+    if(i1>0) v *= (255-(255-c1[ch])*i1)/255;
+    if(i2>0) v *= (255-(255-c2[ch])*i2)/255;
+    if(i3>0) v *= (255-(255-c3[ch])*i3)/255;
+    return Math.round(Math.max(0,Math.min(255,v)));
+  });
+}
+
+function rgbLabel(c) {
+  const h = toHex(...c);
+  const names = {
+    '#ffffff':'Weiß','#000000':'Schwarz','#ff0000':'Rot','#00ff00':'Grün',
+    '#0000ff':'Blau','#ffff00':'Gelb','#ff00ff':'Magenta','#00ffff':'Cyan',
+  };
+  return names[h] || h.toUpperCase();
+}
+
+function updateChips(r, g, b) {
+  let rg, gb, rb, ctr;
+  if (mode === 'additive') {
+    rg  = addMix([255,0,0],r,[0,255,0],g);
+    gb  = addMix([0,255,0],g,[0,0,255],b);
+    rb  = addMix([255,0,0],r,[0,0,255],b);
+    ctr = addMix3([255,0,0],r,[0,255,0],g,[0,0,255],b);
+  } else {
+    const C=[0,200,200], M=[200,0,200], Y=[220,220,0];
+    rg  = subMix(C,r,M,g);
+    gb  = subMix(M,g,Y,b);
+    rb  = subMix(C,r,Y,b);
+    ctr = subMix3(C,r,M,g,Y,b);
+  }
+  document.getElementById('chip-center').textContent = rgbLabel(ctr);
+  document.getElementById('chip-rg').textContent     = rgbLabel(rg);
+  document.getElementById('chip-gb').textContent     = rgbLabel(gb);
+  document.getElementById('chip-rb').textContent     = rgbLabel(rb);
+}
+
+update();
+</script>
+</body>
+</html>
