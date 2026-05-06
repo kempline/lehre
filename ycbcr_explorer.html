@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RGB ↔ YCbCr Explorer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f6f5f2;
+    --bg3: #eeede9;
+    --text: #1a1a18;
+    --text2: #6b6a65;
+    --text3: #9b9a95;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font: system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, 'Cascadia Code', monospace;
+    --badge-y: #b97a00;
+    --badge-cb: #1860a8;
+    --badge-cr: #a02020;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg2: #2a2a27;
+      --bg3: #333330;
+      --text: #e8e7e2;
+      --text2: #9b9a95;
+      --text3: #6b6a65;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.22);
+      --badge-y: #d4a020;
+      --badge-cb: #5090d8;
+      --badge-cr: #d06060;
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg);
+    padding: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; }
+  .upload-zone {
+    border: 0.5px dashed var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text2);
+    transition: background .15s;
+    margin-bottom: 1rem;
+  }
+  .upload-zone:hover { background: var(--bg2); }
+  .canvases {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 1rem;
+  }
+  .ch-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .ch-label { font-size: 11px; font-weight: 500; color: var(--text2); text-align: center; }
+  canvas.ch {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    display: block;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .section-title { font-size: 13px; font-weight: 500; }
+  .reset-btn {
+    font-size: 12px;
+    cursor: pointer;
+    padding: 3px 10px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-family: var(--font);
+  }
+  .reset-btn:hover { background: var(--bg2); }
+  .sliders {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .sl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+  }
+  .sl-group label { font-size: 12px; font-weight: 500; }
+  .sl-row { display: flex; align-items: center; gap: 6px; }
+  .sl-row .end-label { font-size: 11px; color: var(--text3); }
+  .sl-row input[type=range] {
+    flex: 1;
+    accent-color: var(--text);
+    cursor: pointer;
+  }
+  .sl-val { font-size: 12px; color: var(--text2); min-width: 34px; text-align: right; }
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+  .matrix-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+  .mcard {
+    padding: 12px 14px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+  }
+  .mcard h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+  .matrix {
+    display: grid;
+    grid-template-columns: auto repeat(3, 1fr) auto auto;
+    gap: 2px 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    line-height: 1.7;
+    align-items: center;
+  }
+  .matrix .row-label { color: var(--text2); font-weight: 500; white-space: nowrap; }
+  .matrix .coeff { color: var(--text); text-align: right; }
+  .matrix .eq { color: var(--text3); text-align: center; }
+  .matrix .result { font-weight: 500; text-align: right; }
+  .badge-y  { color: var(--badge-y); }
+  .badge-cb { color: var(--badge-cb); }
+  .badge-cr { color: var(--badge-cr); }
+  .pixel-panel {
+    padding: 12px 14px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    margin-bottom: 1rem;
+  }
+  .pixel-panel h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+  .pixel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .pixel-col-title { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .pswatch {
+    width: 36px; height: 36px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border);
+    flex-shrink: 0;
+  }
+  .prow {
+    font-size: 12px;
+    font-family: var(--mono);
+    line-height: 1.8;
+  }
+  .hint { font-size: 12px; color: var(--text2); text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>RGB ↔ YCbCr Explorer</h1>
+<p class="subtitle">Interaktive Visualisierung der Farbraumkonvertierung mit Transformationsmatrix</p>
+
+<div class="upload-zone" id="dropzone">
+  <i class="ti ti-upload" style="font-size:22px;display:block;margin-bottom:6px"></i>
+  Bild hierher ziehen oder klicken zum Hochladen
+  <input type="file" id="fileInput" accept="image/*" style="display:none">
+</div>
+
+<div class="canvases">
+  <div class="ch-wrap"><div class="ch-label">Original (RGB)</div><canvas class="ch" id="c-orig"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label badge-y">Y — Luminanz</div><canvas class="ch" id="c-y"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label badge-cb">Cb — Blau ↔ Gelb</div><canvas class="ch" id="c-cb"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label badge-cr">Cr — Rot ↔ Cyan</div><canvas class="ch" id="c-cr"></canvas></div>
+</div>
+
+<div class="section-header">
+  <span class="section-title">Kanalverschiebung</span>
+  <button class="reset-btn" id="resetBtn"><i class="ti ti-refresh"></i> zurücksetzen</button>
+</div>
+<div class="sliders">
+  <div class="sl-group">
+    <label class="badge-y">Y — Helligkeit</label>
+    <div class="sl-row">
+      <span class="end-label">−128</span>
+      <input type="range" id="sl-y" min="-128" max="128" step="1" value="0">
+      <span class="end-label">+128</span>
+      <span class="sl-val" id="val-y">0</span>
+    </div>
+  </div>
+  <div class="sl-group">
+    <label class="badge-cb">Cb — Blau ↔ Gelb</label>
+    <div class="sl-row">
+      <span class="end-label">−128</span>
+      <input type="range" id="sl-cb" min="-128" max="128" step="1" value="0">
+      <span class="end-label">+128</span>
+      <span class="sl-val" id="val-cb">0</span>
+    </div>
+  </div>
+  <div class="sl-group">
+    <label class="badge-cr">Cr — Rot ↔ Cyan</label>
+    <div class="sl-row">
+      <span class="end-label">−128</span>
+      <input type="range" id="sl-cr" min="-128" max="128" step="1" value="0">
+      <span class="end-label">+128</span>
+      <span class="sl-val" id="val-cr">0</span>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-grid">
+  <div class="ch-wrap"><div class="ch-label">Rekonstruiert (mit Offset)</div><canvas class="ch" id="c-recon"></canvas></div>
+  <div class="ch-wrap">
+    <div class="ch-label" style="color:var(--text2)">Pixel-Inspector <span style="font-weight:400">(klicken)</span></div>
+    <canvas class="ch" id="c-click" style="cursor:crosshair"></canvas>
+  </div>
+</div>
+
+<div class="matrix-section">
+  <div class="mcard">
+    <h3>RGB → YCbCr (Vorwärts)</h3>
+    <div class="matrix" id="mtx-fwd"></div>
+  </div>
+  <div class="mcard">
+    <h3>YCbCr (angepasst) → RGB (Rückwärts)</h3>
+    <div class="matrix" id="mtx-inv"></div>
+  </div>
+</div>
+
+<div class="pixel-panel" id="pixelPanel" style="display:none">
+  <h3>Pixelwerte (angeklickter Pixel)</h3>
+  <div class="pixel-grid">
+    <div>
+      <div class="pixel-col-title">Originalfarbe (RGB)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="pswatch" id="sw-orig"></div>
+        <div class="prow" id="rgb-vals"></div>
+      </div>
+    </div>
+    <div>
+      <div class="pixel-col-title">YCbCr (berechnet)</div>
+      <div class="prow" id="ycbcr-vals"></div>
+    </div>
+    <div>
+      <div class="pixel-col-title">YCbCr + Offset → RGB</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="pswatch" id="sw-recon"></div>
+        <div class="prow" id="recon-vals"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="hint" id="hint">← Bild hochladen, dann Schieberegler bewegen oder Pixel anklicken für Detailwerte</p>
+
+<script>
+const W = 640, H = 480;
+let origData = null, offY = 0, offCb = 0, offCr = 0;
+let lastPx = -1, lastPy = -1;
+
+function clamp(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+function rgbToYcbcr(r, g, b) {
+  return [
+    0.299 * r + 0.587 * g + 0.114 * b,
+    128 - 0.168736 * r - 0.331264 * g + 0.5 * b,
+    128 + 0.5 * r - 0.418688 * g - 0.081312 * b
+  ];
+}
+
+function ycbcrToRgb(Y, Cb, Cr) {
+  return [
+    clamp(Y + 1.402 * (Cr - 128)),
+    clamp(Y - 0.344136 * (Cb - 128) - 0.714136 * (Cr - 128)),
+    clamp(Y + 1.772 * (Cb - 128))
+  ];
+}
+
+function getCtx(id) {
+  const c = document.getElementById(id);
+  c.width = W; c.height = H;
+  return c.getContext('2d');
+}
+
+function renderMatrix(fwdId, invId, r, g, b, oY, oCb, oCr) {
+  const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
+  const Yadj = clamp(Y + oY), Cbadj = clamp(Cb + oCb), Cradj = clamp(Cr + oCr);
+  const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
+
+  const ci = s => `<span class="coeff">${s}</span>`;
+  const rl = s => `<span class="row-label">${s}</span>`;
+  const re = (s, cls) => `<span class="result ${cls || ''}">${s}</span>`;
+  const eq = `<span class="eq">=</span>`;
+
+  document.getElementById(fwdId).innerHTML = `
+    ${rl('Y')}  ${ci('0.2990·' + r)} ${ci('+0.5870·' + g)} ${ci('+0.1140·' + b)}       ${eq} ${re(Math.round(Y), 'badge-y')}
+    ${rl('Cb')} ${ci('−0.1687·' + r)} ${ci('−0.3313·' + g)} ${ci('+0.5000·' + b + '+128')} ${eq} ${re(Math.round(Cb), 'badge-cb')}
+    ${rl('Cr')} ${ci('+0.5000·' + r)} ${ci('−0.4187·' + g)} ${ci('−0.0813·' + b + '+128')} ${eq} ${re(Math.round(Cr), 'badge-cr')}
+  `;
+
+  document.getElementById(invId).innerHTML = `
+    ${rl('R')} ${ci('1·' + Yadj)} ${ci('+0·(Cb−128)')}              ${ci('+1.4020·(' + Cradj + '−128)')} ${eq} ${re(rr, 'badge-cr')}
+    ${rl('G')} ${ci('1·' + Yadj)} ${ci('−0.3441·(' + Cbadj + '−128)')} ${ci('−0.7141·(' + Cradj + '−128)')} ${eq} ${re(rg, 'badge-y')}
+    ${rl('B')} ${ci('1·' + Yadj)} ${ci('+1.7720·(' + Cbadj + '−128)')} ${ci('+0·(Cr−128)')}              ${eq} ${re(rb, 'badge-cb')}
+  `;
+}
+
+function drawChannels() {
+  if (!origData) return;
+  const px = origData, n = W * H;
+  const ctxO = getCtx('c-orig'), ctxY = getCtx('c-y'), ctxCb = getCtx('c-cb'), ctxCr = getCtx('c-cr');
+  const ctxR = getCtx('c-recon'), ctxC = getCtx('c-click');
+  const dO = ctxO.createImageData(W, H), dY = ctxY.createImageData(W, H);
+  const dCb = ctxCb.createImageData(W, H), dCr = ctxCr.createImageData(W, H);
+  const dR = ctxR.createImageData(W, H), dC = ctxC.createImageData(W, H);
+
+  for (let i = 0; i < n; i++) {
+    const idx = i * 4, r = px[idx], g = px[idx + 1], b = px[idx + 2];
+    dO.data[idx] = r; dO.data[idx+1] = g; dO.data[idx+2] = b; dO.data[idx+3] = 255;
+
+    const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
+    const yv = clamp(Y);
+    dY.data[idx] = yv; dY.data[idx+1] = yv; dY.data[idx+2] = yv; dY.data[idx+3] = 255;
+
+    const cbv = clamp(Cb);
+    dCb.data[idx]   = clamp((cbv - 128) * (-0.7) + 128);
+    dCb.data[idx+1] = clamp((cbv - 128) * (-0.7) + 128);
+    dCb.data[idx+2] = cbv; dCb.data[idx+3] = 255;
+
+    const crv = clamp(Cr);
+    dCr.data[idx]   = crv;
+    dCr.data[idx+1] = clamp((crv - 128) * (-0.5) + 128);
+    dCr.data[idx+2] = clamp((crv - 128) * (-0.5) + 128); dCr.data[idx+3] = 255;
+
+    const Yadj = clamp(Y + offY), Cbadj = clamp(Cb + offCb), Cradj = clamp(Cr + offCr);
+    const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
+    dR.data[idx] = rr; dR.data[idx+1] = rg; dR.data[idx+2] = rb; dR.data[idx+3] = 255;
+    dC.data[idx] = rr; dC.data[idx+1] = rg; dC.data[idx+2] = rb; dC.data[idx+3] = 255;
+  }
+
+  ctxO.putImageData(dO, 0, 0); ctxY.putImageData(dY, 0, 0);
+  ctxCb.putImageData(dCb, 0, 0); ctxCr.putImageData(dCr, 0, 0);
+  ctxR.putImageData(dR, 0, 0); ctxC.putImageData(dC, 0, 0);
+
+  if (lastPx >= 0) updatePixelInfo(lastPx, lastPy);
+  else {
+    const mid = Math.floor(n / 2), midIdx = mid * 4;
+    renderMatrix('mtx-fwd', 'mtx-inv', origData[midIdx], origData[midIdx+1], origData[midIdx+2], offY, offCb, offCr);
+  }
+}
+
+function updatePixelInfo(px, py) {
+  const idx = (py * W + px) * 4;
+  const r = origData[idx], g = origData[idx+1], b = origData[idx+2];
+  const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
+  const Yadj = clamp(Y + offY), Cbadj = clamp(Cb + offCb), Cradj = clamp(Cr + offCr);
+  const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
+
+  document.getElementById('sw-orig').style.background = `rgb(${r},${g},${b})`;
+  document.getElementById('sw-recon').style.background = `rgb(${rr},${rg},${rb})`;
+  document.getElementById('rgb-vals').innerHTML = `R: ${r}<br>G: ${g}<br>B: ${b}`;
+  document.getElementById('ycbcr-vals').innerHTML =
+    `<span class="badge-y">Y:  ${Math.round(Y)}</span><br>` +
+    `<span class="badge-cb">Cb: ${Math.round(Cb)}</span><br>` +
+    `<span class="badge-cr">Cr: ${Math.round(Cr)}</span>`;
+  document.getElementById('recon-vals').innerHTML = `R: ${rr}<br>G: ${rg}<br>B: ${rb}`;
+  document.getElementById('pixelPanel').style.display = 'block';
+  renderMatrix('mtx-fwd', 'mtx-inv', r, g, b, offY, offCb, offCr);
+}
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      const scale = Math.min(1, W / img.width, H / img.height);
+      const sw = Math.round(img.width * scale), sh = Math.round(img.height * scale);
+      cv.width = W; cv.height = H;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
+      origData = ctx.getImageData(0, 0, W, H).data;
+      lastPx = -1; lastPy = -1;
+      document.getElementById('hint').textContent = 'Schieberegler bewegen oder Pixel anklicken für Detailwerte';
+      drawChannels();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('fileInput');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = 'var(--bg2)'; });
+dz.addEventListener('dragleave', () => dz.style.background = '');
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.style.background = '';
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+fi.addEventListener('change', e => { if (e.target.files[0]) loadImage(e.target.files[0]); });
+
+['y', 'cb', 'cr'].forEach(ch => {
+  document.getElementById('sl-' + ch).addEventListener('input', function () {
+    document.getElementById('val-' + ch).textContent = this.value;
+    if (ch === 'y')  offY  = +this.value;
+    if (ch === 'cb') offCb = +this.value;
+    if (ch === 'cr') offCr = +this.value;
+    drawChannels();
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  ['y', 'cb', 'cr'].forEach(ch => {
+    document.getElementById('sl-' + ch).value = 0;
+    document.getElementById('val-' + ch).textContent = '0';
+  });
+  offY = 0; offCb = 0; offCr = 0; lastPx = -1; lastPy = -1;
+  drawChannels();
+});
+
+document.getElementById('c-click').addEventListener('click', function (e) {
+  if (!origData) return;
+  const rect = this.getBoundingClientRect();
+  lastPx = Math.min(W - 1, Math.max(0, Math.floor((e.clientX - rect.left) / rect.width * W)));
+  lastPy = Math.min(H - 1, Math.max(0, Math.floor((e.clientY - rect.top) / rect.height * H)));
+  updatePixelInfo(lastPx, lastPy);
+});
+
+renderMatrix('mtx-fwd', 'mtx-inv', 128, 64, 200, 0, 0, 0);
+</script>
+</body>
+</html>
