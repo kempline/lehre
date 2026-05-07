@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lichtspektrum &amp; Farbkamera – Simulator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #f5f5f3;
+    color: #1a1a1a;
+    padding: 24px 16px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #1a1a1a;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .panel {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 99px;
+    border: 1px solid #d0d0d0;
+    background: #f5f5f3;
+    color: #444;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+    user-select: none;
+  }
+  .chip:hover { background: #e8e8e5; border-color: #bbb; }
+  .chip.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  .spec-label {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: -4px;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    border-radius: 5px;
+    background: #fafafa;
+    border: 1px solid #ebebeb;
+  }
+
+  /* RGB bars */
+  .rgb-section { display: flex; flex-direction: column; gap: 6px; }
+  .rgb-row { display: flex; align-items: center; gap: 8px; }
+  .rgb-lbl { font-size: 13px; font-weight: 600; width: 14px; flex-shrink: 0; }
+  .rgb-track {
+    flex: 1; height: 18px; border-radius: 5px;
+    background: #f0f0ee; overflow: hidden;
+    border: 1px solid #e0e0de;
+  }
+  .rgb-fill { height: 100%; border-radius: 5px; transition: width .35s ease; }
+  .rgb-num { font-size: 12px; width: 28px; text-align: right; color: #888; flex-shrink: 0; }
+
+  .bottom-row { display: flex; gap: 10px; align-items: flex-start; }
+  .swatch-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .swatch {
+    width: 48px; height: 48px; border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    transition: background .3s;
+  }
+  .swatch-lbl { font-size: 10px; color: #aaa; }
+
+  .info-box {
+    max-width: 960px;
+    margin: 20px auto 0;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.65;
+  }
+  .info-box strong { color: #1a1a1a; font-weight: 600; }
+
+  @media (max-width: 680px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div style="max-width:960px;margin:0 auto 20px;">
+  <h1>Lichtspektrum &amp; Farbkamera – Simulator</h1>
+  <p class="subtitle">
+    Wähle eine Lichtquelle und ein Objekt. Der Simulator berechnet das reflektierte Spektrum
+    und zeigt, welche RGB-Werte eine Filmkamera daraus erzeugt.
+  </p>
+</div>
+
+<div class="grid">
+
+  <!-- Panel 1: Lichtquelle -->
+  <div class="panel">
+    <div class="panel-title">Lichtquelle</div>
+    <div class="chip-group" id="light-chips">
+      <div class="chip active" data-light="sun">Sonnenlicht</div>
+      <div class="chip" data-light="xenon">Xenon</div>
+      <div class="chip" data-light="led">LED</div>
+      <div class="chip" data-light="fluoro">Leuchtstoffröhre</div>
+      <div class="chip" data-light="cfl">Energiesparlampe</div>
+    </div>
+    <div class="spec-label">Emissionsspektrum</div>
+    <canvas id="cv-light" height="80"></canvas>
+  </div>
+
+  <!-- Panel 2: Objekt -->
+  <div class="panel">
+    <div class="panel-title">Objekt</div>
+    <div class="chip-group" id="obj-chips">
+      <div class="chip active" data-obj="person">Person (Haut)</div>
+      <div class="chip" data-obj="wood">Holzmöbel</div>
+      <div class="chip" data-obj="plant">Pflanze</div>
+      <div class="chip" data-obj="fabric">Blauer Stoff</div>
+      <div class="chip" data-obj="paper">Weißes Papier</div>
+      <div class="chip" data-obj="metal">Metall (grau)</div>
+    </div>
+    <div class="spec-label">Reflektiertes Spektrum</div>
+    <canvas id="cv-reflect" height="80"></canvas>
+  </div>
+
+  <!-- Panel 3: Kamera -->
+  <div class="panel">
+    <div class="panel-title">Filmkamera – RGB-Signal</div>
+    <div class="rgb-section">
+      <div class="rgb-row">
+        <span class="rgb-lbl" style="color:#b03020;">R</span>
+        <div class="rgb-track"><div class="rgb-fill" id="bar-r" style="background:#e04030;width:0%"></div></div>
+        <span class="rgb-num" id="num-r">—</span>
+      </div>
+      <div class="rgb-row">
+        <span class="rgb-lbl" style="color:#1a7030;">G</span>
+        <div class="rgb-track"><div class="rgb-fill" id="bar-g" style="background:#28b040;width:0%"></div></div>
+        <span class="rgb-num" id="num-g">—</span>
+      </div>
+      <div class="rgb-row">
+        <span class="rgb-lbl" style="color:#1050a0;">B</span>
+        <div class="rgb-track"><div class="rgb-fill" id="bar-b" style="background:#2870c8;width:0%"></div></div>
+        <span class="rgb-num" id="num-b">—</span>
+      </div>
+    </div>
+    <div class="bottom-row">
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+        <div class="spec-label">Kamerasensitivität (R / G / B)</div>
+        <canvas id="cv-cam" height="60"></canvas>
+        <div class="spec-label" style="margin-top:2px;">Kamera-Vorschau</div>
+        <canvas id="cv-prev" height="64"></canvas>
+      </div>
+      <div class="swatch-col">
+        <div class="swatch" id="swatch"></div>
+        <div class="swatch-lbl">Farbe</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="info-box">
+  <strong>Hinweis:</strong> Beim Farbfernsehen und bei Filmkameras werden
+  <strong>nicht</strong> die Farbsignale R, G, B übertragen, sondern drei
+  Komponentensignale für <strong>Helligkeit</strong> plus zwei
+  <strong>Farbdifferenzen</strong>. Das hat gegenüber RGB zwei Vorteile:
+  Kompatibilität mit dem Schwarzweißfernsehen (BRD: 1967) und eine effizientere
+  Datenkompression. Der Simulator zeigt jedoch vereinfachend die RGB-Rohsignale
+  der Kamerasensoren.
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ── Spektrale Grundlagen ─────────────────────────────────── */
+  const NM = 81, WS = 380, WE = 780;
+  const wl = Array.from({ length: NM }, (_, i) => WS + i * 5);
+
+  function gauss(c, w, a) {
+    return wl.map(x => a * Math.exp(-0.5 * Math.pow((x - c) / w, 2)));
+  }
+  function addA(a, b) { return a.map((v, i) => v + b[i]); }
+  function mulA(a, b) { return a.map((v, i) => v * b[i]); }
+  function norm(a) { const m = Math.max(...a, 1e-4); return a.map(v => v / m); }
+  function clamp(v) { return Math.max(0, Math.min(1, v)); }
+
+  /* ── Lichtquellen-Spektren ───────────────────────────────── */
+  const LIGHTS = {
+    sun: norm(wl.map(w => 0.3 + 0.7 * Math.exp(-0.5 * Math.pow((w - 550) / 200, 2)))),
+
+    xenon: norm((() => {
+      let s = wl.map(w => 0.55 + 0.3 * Math.exp(-0.5 * Math.pow((w - 500) / 180, 2)));
+      [[450,5,.8],[467,4,.7],[473,4,.6],[541,6,.9],[546,5,1],[579,5,.9]]
+        .forEach(([c, w2, a]) => gauss(c, w2, a).forEach((v, i) => s[i] += v));
+      return s;
+    })()),
+
+    led: norm(addA(gauss(450, 20, .8), gauss(560, 65, 1))),
+
+    fluoro: norm((() => {
+      let b = wl.map(() => .12);
+      [[436,6,.9],[546,5,1],[579,5,.85],[611,5,.7],[489,5,.5]]
+        .forEach(([c, w2, a]) => gauss(c, w2, a).forEach((v, i) => b[i] += v));
+      return b;
+    })()),
+
+    cfl: norm((() => {
+      let b = wl.map(() => .08);
+      [[405,5,.5],[436,5,.8],[487,6,.6],[546,5,1],[578,5,.9],[611,5,.7],[631,5,.5]]
+        .forEach(([c, w2, a]) => gauss(c, w2, a).forEach((v, i) => b[i] += v));
+      return b;
+    })())
+  };
+
+  /* ── Objekt-Reflexionskurven ─────────────────────────────── */
+  const OBJECTS = {
+    person: norm(wl.map(w => w < 480 ? 0.05 : w < 580 ? 0.05 + (w - 480) / 100 * .55 : 0.60)),
+    wood:   norm(wl.map(w => w < 450 ? 0.05 : w < 580 ? 0.05 + (w - 450) * .6 / 130 : 0.65)),
+    plant:  norm(wl.map(w => {
+      if (w > 490 && w < 580) return 0.06 + (w - 490) * .85 / 90;
+      if (w >= 580)           return Math.max(0, 0.82 - (w - 580) * .003);
+      return 0.06;
+    })),
+    fabric: norm(wl.map(w => w < 520
+      ? 0.7 - (w - 380) * .5 / 140
+      : Math.max(0, 0.2 - (w - 520) * .2 / 260))),
+    paper:  wl.map(() => 0.95),
+    metal:  wl.map(() => 0.55)
+  };
+
+  /* ── Kamera-Sensitivitätskurven ──────────────────────────── */
+  const CAM_R = norm(wl.map(w => clamp(Math.exp(-0.5 * Math.pow((w - 600) / 50, 2)))));
+  const CAM_G = norm(wl.map(w => clamp(Math.exp(-0.5 * Math.pow((w - 540) / 55, 2)))));
+  const CAM_B = norm(wl.map(w => clamp(Math.exp(-0.5 * Math.pow((w - 450) / 40, 2)))));
+
+  /* ── Wellenlänge → sichtbare Farbe ──────────────────────── */
+  function wlToRGB(nm) {
+    let r = 0, g = 0, b = 0;
+    if      (nm < 440) { r = (440 - nm) / 60; b = 1; }
+    else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+    else if (nm < 510) { g = 1; b = (510 - nm) / 20; }
+    else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+    else if (nm < 645) { r = 1; g = (645 - nm) / 65; }
+    else               { r = 1; }
+    const att = nm < 420 ? 0.3 + 0.7 * (nm - 380) / 40
+              : nm > 700 ? 0.3 + 0.7 * (780 - nm) / 80 : 1;
+    return [r * att, g * att, b * att];
+  }
+
+  /* ── Canvas-Hilfsfunktionen ──────────────────────────────── */
+  function sizeCanvas(cv) {
+    const W = cv.parentElement.clientWidth - 32 || 200;
+    cv.width  = W;
+    cv.style.width  = W + "px";
+  }
+
+  function drawSpec(id, arr) {
+    const cv  = document.getElementById(id);
+    sizeCanvas(cv);
+    const W = cv.width, H = cv.height;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    const mx  = Math.max(...arr, 1e-4);
+    const bw  = W / NM;
+    const barH = H - 14;
+    for (let i = 0; i < NM; i++) {
+      const [r, g, b] = wlToRGB(wl[i]);
+      const h = (arr[i] / mx) * barH;
+      if (h < 0.5) continue;
+      ctx.fillStyle = `rgba(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)},0.9)`;
+      ctx.fillRect(Math.round(i * bw), barH - Math.round(h), Math.ceil(bw) + 1, Math.round(h));
+    }
+    ctx.strokeStyle = "rgba(180,180,180,0.4)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, barH); ctx.lineTo(W, barH); ctx.stroke();
+    ctx.fillStyle = "rgba(140,140,140,0.8)";
+    ctx.font = "9px sans-serif";
+    ctx.textBaseline = "top";
+    [400, 450, 500, 550, 600, 650, 700, 750].forEach(nm => {
+      const x = Math.round(((nm - WS) / (WE - WS)) * W);
+      if (x > 6 && x < W - 14) ctx.fillText(nm + "", x - 7, barH + 2);
+    });
+  }
+
+  function drawCamSens(id) {
+    const cv  = document.getElementById(id);
+    sizeCanvas(cv);
+    const W = cv.width, H = cv.height;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    const bw = W / NM;
+    [[CAM_R, "rgba(220,50,40,0.45)"],
+     [CAM_G, "rgba(30,160,60,0.45)"],
+     [CAM_B, "rgba(30,100,210,0.45)"]].forEach(([arr, col]) => {
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      arr.forEach((v, i) => ctx.lineTo(i * bw + bw / 2, H - v * (H - 3)));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = col;
+      ctx.fill();
+    });
+  }
+
+  function drawPreview(id, r, g, b) {
+    const cv  = document.getElementById(id);
+    sizeCanvas(cv);
+    const W = cv.width, H = cv.height;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, 0, W, H);
+    const lum = (r * 299 + g * 587 + b * 114) / 1000;
+    ctx.fillStyle = lum > 140 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.75)";
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`rgb(${r}, ${g}, ${b})`, W / 2, H / 2);
+  }
+
+  function integrate(s, sens) {
+    let t = 0;
+    for (let i = 0; i < NM; i++) t += s[i] * sens[i];
+    return t / NM;
+  }
+
+  /* ── Zustand ─────────────────────────────────────────────── */
+  let curLight = "sun";
+  let curObj   = "person";
+
+  /* ── Haupt-Update ────────────────────────────────────────── */
+  function update() {
+    const light   = LIGHTS[curLight];
+    const obj     = OBJECTS[curObj];
+    const refl    = mulA(light, obj);
+
+    drawSpec("cv-light",   light);
+    drawSpec("cv-reflect", refl);
+    drawCamSens("cv-cam");
+
+    const rn    = norm(refl);
+    const rRaw  = integrate(rn, CAM_R);
+    const gRaw  = integrate(rn, CAM_G);
+    const bRaw  = integrate(rn, CAM_B);
+    const peak  = Math.max(rRaw, gRaw, bRaw, 1e-4) * 1.15;
+    const r8    = Math.round(clamp(rRaw / peak) * 255);
+    const g8    = Math.round(clamp(gRaw / peak) * 255);
+    const b8    = Math.round(clamp(bRaw / peak) * 255);
+
+    document.getElementById("bar-r").style.width = Math.round(r8 / 255 * 100) + "%";
+    document.getElementById("bar-g").style.width = Math.round(g8 / 255 * 100) + "%";
+    document.getElementById("bar-b").style.width = Math.round(b8 / 255 * 100) + "%";
+    document.getElementById("num-r").textContent = r8;
+    document.getElementById("num-g").textContent = g8;
+    document.getElementById("num-b").textContent = b8;
+    document.getElementById("swatch").style.background = `rgb(${r8},${g8},${b8})`;
+    drawPreview("cv-prev", r8, g8, b8);
+  }
+
+  /* ── Event-Handler ───────────────────────────────────────── */
+  document.getElementById("light-chips").addEventListener("click", e => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#light-chips .chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    curLight = chip.dataset.light;
+    update();
+  });
+
+  document.getElementById("obj-chips").addEventListener("click", e => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.querySelectorAll("#obj-chips .chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    curObj = chip.dataset.obj;
+    update();
+  });
+
+  /* ── Initialisierung ─────────────────────────────────────── */
+  window.addEventListener("load", update);
+  window.addEventListener("resize", update);
+
+})();
+</script>
+</body>
+</html>
