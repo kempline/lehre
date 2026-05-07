@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MT2 Labor: LCD Transmission & Polarisation</title>
+    <style>
+        :root {
+            --mt2-blue: #2c3e50;
+            --mt2-accent: #e67e22;
+            --glass: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #d1d8e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 3px solid var(--mt2-blue);
+            margin-bottom: 25px;
+        }
+
+        /* Das gemeinsame Backlight */
+        .backlight-common {
+            width: 100%;
+            height: 60px;
+            background: linear-gradient(to bottom, #fff, #ffeaa7);
+            border: 2px solid #f1c40f;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 0 20px #fff;
+            margin-bottom: 5px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .optical-system {
+            background: #2f3640;
+            padding: 40px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pixel-grid {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Die Lichtstrahlen (Beams) */
+        .beam {
+            width: 30px;
+            background: white;
+            transition: all 0.3s ease;
+            margin: 0 auto;
+            filter: blur(2px);
+        }
+
+        /* Lichtpfad Spalten */
+        .path-column {
+            display: flex;
+            flex-direction: column;
+            width: 25%;
+            text-align: center;
+            color: white;
+        }
+
+        .component {
+            padding: 10px;
+            border: 1px solid #718093;
+            background: rgba(255,255,255,0.1);
+            font-size: 0.8em;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+
+        .subpixel-display {
+            width: 100px;
+            height: 100px;
+            margin: 20px auto;
+            border: 3px solid #000;
+            transition: background 0.2s;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .master-result {
+            margin-top: 40px;
+            text-align: center;
+            padding: 20px;
+            border-top: 2px solid #eee;
+        }
+
+        .final-pixel {
+            width: 150px;
+            height: 150px;
+            margin: 20px auto;
+            border: 5px solid #222;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+
+        .physics-note {
+            font-size: 0.9em;
+            color: #636e72;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Media Technology 2: LCD-Transmissionsmodell</h1>
+        <p>Simulation der Lichtintensität und Polarisationsebene</p>
+    </header>
+
+    <div class="optical-system">
+        <!-- Gemeinsame Hintergrundbeleuchtung -->
+        <div class="backlight-common">GEMEINSAMES BACKLIGHT (I₀ = 100%)</div>
+
+        <div class="pixel-grid">
+            <!-- ROTER PFAD -->
+            <div class="path-column">
+                <div class="beam" id="beam-r-1" style="height: 40px; opacity: 0.8; width: 25px;"></div>
+                <div class="component">Polarisator 1</div>
+                <div class="beam" id="beam-r-2" style="height: 40px; opacity: 0.4; width: 15px;"></div>
+                <div class="component">LC-Zelle (θ)</div>
+                <div class="beam" id="beam-r-3" style="height: 40px;"></div>
+                <div class="component">Analysator</div>
+                <div class="beam" id="beam-r-4" style="height: 40px;"></div>
+                <div class="component" style="border-color: #ff7675;">Farbfilter R</div>
+                <div class="subpixel-display" id="disp-r"></div>
+            </div>
+
+            <!-- GRÜNER PFAD -->
+            <div class="path-column">
+                <div class="beam" id="beam-g-1" style="height: 40px; opacity: 0.8; width: 25px;"></div>
+                <div class="component">Polarisator 1</div>
+                <div class="beam" id="beam-g-2" style="height: 40px; opacity: 0.4; width: 15px;"></div>
+                <div class="component">LC-Zelle (θ)</div>
+                <div class="beam" id="beam-g-3" style="height: 40px;"></div>
+                <div class="component">Analysator</div>
+                <div class="beam" id="beam-g-4" style="height: 40px;"></div>
+                <div class="component" style="border-color: #55efc4;">Farbfilter G</div>
+                <div class="subpixel-display" id="disp-g"></div>
+            </div>
+
+            <!-- BLAUER PFAD -->
+            <div class="path-column">
+                <div class="beam" id="beam-b-1" style="height: 40px; opacity: 0.8; width: 25px;"></div>
+                <div class="component">Polarisator 1</div>
+                <div class="beam" id="beam-b-2" style="height: 40px; opacity: 0.4; width: 15px;"></div>
+                <div class="component">LC-Zelle (θ)</div>
+                <div class="beam" id="beam-b-3" style="height: 40px;"></div>
+                <div class="component">Analysator</div>
+                <div class="beam" id="beam-b-4" style="height: 40px;"></div>
+                <div class="component" style="border-color: #74b9ff;">Farbfilter B</div>
+                <div class="subpixel-display" id="disp-b"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label>Drehung Rot (0-90°)</label>
+            <input type="range" id="slide-r" min="0" max="90" value="0">
+            <span id="val-r">0°</span>
+        </div>
+        <div class="slider-group">
+            <label>Drehung Grün (0-90°)</label>
+            <input type="range" id="slide-g" min="0" max="90" value="0">
+            <span id="val-g">0°</span>
+        </div>
+        <div class="slider-group">
+            <label>Drehung Blau (0-90°)</label>
+            <input type="range" id="slide-b" min="0" max="90" value="0">
+            <span id="val-b">0°</span>
+        </div>
+    </div>
+
+    <div class="master-result">
+        <h2>Additive Mischung (Resultierendes Pixel)</h2>
+        <div class="final-pixel" id="final-pixel"></div>
+        <p id="rgb-label">RGB(255, 255, 255)</p>
+        <p class="physics-note">Beachte: Die Intensität nimmt nach jedem Filter durch Absorption und Polarisation physikalisch ab.</p>
+    </div>
+</div>
+
+<script>
+    function updateSimulation() {
+        const channels = ['r', 'g', 'b'];
+        let finalRGB = [0, 0, 0];
+
+        channels.forEach((ch, index) => {
+            const angle = document.getElementById(`slide-${ch}`).value;
+            document.getElementById(`val-${ch}`).innerText = angle + "°";
+
+            // Transmissions-Berechnung (Malus: I = cos^2(angle))
+            const rad = angle * Math.PI / 180;
+            const transmission = Math.pow(Math.cos(rad), 2);
+            
+            // Lichtabschwächung visualisieren (Beams)
+            // Beam 1 (hinter Backlight): 80% (leicht gedämpft)
+            // Beam 2 (nach Pol 1): 40% (Polarisation kostet 50% + Glasverluste)
+            // Beam 3 (nach LC): Bleibt bei ca 40% (nur Drehung)
+            // Beam 4 (nach Analysator): 40% * Transmission
+            const intensityAfterAnalysator = 0.4 * transmission;
+
+            const beam3 = document.getElementById(`beam-${ch}-3`);
+            const beam4 = document.getElementById(`beam-${ch}-4`);
+
+            // Visuelle Breite und Helligkeit des Strahls anpassen
+            beam3.style.width = "15px";
+            beam3.style.opacity = "0.4";
+
+            beam4.style.width = (0 + (15 * transmission)) + "px";
+            beam4.style.opacity = intensityAfterAnalysator + 0.1;
+
+            // Subpixel Update
+            const val = Math.round(transmission * 255);
+            finalRGB[index] = val;
+            
+            const colorMap = {
+                'r': `rgb(${val}, 0, 0)`,
+                'g': `rgb(0, ${val}, 0)`,
+                'b': `rgb(0, 0, ${val})`
+            };
+            document.getElementById(`disp-${ch}`).style.backgroundColor = colorMap[ch];
+        });
+
+        // Finales Pixel
+        const finalCol = `rgb(${finalRGB[0]}, ${finalRGB[1]}, ${finalRGB[2]})`;
+        document.getElementById('final-pixel').style.backgroundColor = finalCol;
+        document.getElementById('rgb-label').innerText = `RGB Resultat: ${finalRGB[0]}, ${finalRGB[1]}, ${finalRGB[2]}`;
+    }
+
+    document.querySelectorAll('input').forEach(s => s.addEventListener('input', updateSimulation));
+    updateSimulation(); // Initialer Call
+</script>
+
+</body>
+</html>
