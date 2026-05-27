@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LCD Backlight Simulator — CCFL vs LED</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --surface: #111113;
+      --surface2: #18181c;
+      --border: #2a2a30;
+      --text: #e8e8ec;
+      --muted: #6b6b75;
+      --accent: #c8f542;
+      --accent2: #42c8f5;
+      --danger: #f55a42;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      padding: 24px 28px 40px;
+      gap: 18px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Controls bar ── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ctrl-group label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .ctrl-group input[type=range] {
+      -webkit-appearance: none;
+      width: 80px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .ctrl-group input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .ctrl-group input[type=range]::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+    }
+    .ctrl-group .val {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 30px;
+    }
+    .ctrl-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    button {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--surface2); border-color: var(--muted); }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+    button.primary { border-color: var(--accent); color: var(--accent); }
+    button.primary:hover { background: rgba(200,245,66,0.08); }
+    #fileInput { display: none; }
+
+    /* ── Panels ── */
+    .panels {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .panel-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .dot-orig  { background: var(--text); }
+    .dot-ccfl  { background: var(--danger); }
+    .dot-led   { background: var(--accent); }
+    .panel-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .panel-meta {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+    }
+    canvas.panel { width: 100%; height: 100%; display: block; }
+
+    .drop-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      background: var(--surface);
+      transition: background 0.15s;
+    }
+    .drop-overlay:hover { background: var(--surface2); }
+    .drop-overlay svg { opacity: 0.4; }
+    .drop-overlay span {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      gap: 16px;
+    }
+
+    #hiddenVideo { display: none; }
+
+    @media (max-width: 900px) {
+      body { padding: 14px; }
+      .panels { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>LCD Backlight <span>Simulator</span></h1>
+  <p>CCFL vs LED-Array · lokale Dimmung visualisiert</p>
+</header>
+
+<input type="file" id="fileInput" accept="video/*">
+<video id="hiddenVideo" muted playsinline></video>
+
+<div class="controls">
+  <!-- CCFL -->
+  <div class="ctrl-group">
+    <label>CCFL-Röhren</label>
+    <input type="range" id="ccflCount" min="2" max="16" step="1" value="6">
+    <span class="val" id="ccflVal">6</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Blooming</label>
+    <input type="range" id="bloomSlider" min="0" max="5" step="1" value="2">
+    <span class="val" id="bloomVal">2</span>
+  </div>
+  <div class="ctrl-divider"></div>
+  <!-- LED -->
+  <div class="ctrl-group">
+    <label>LED H</label>
+    <input type="range" id="ledH" min="4" max="64" step="1" value="32">
+    <span class="val" id="ledHVal">32</span>
+  </div>
+  <div class="ctrl-group">
+    <label>LED V</label>
+    <input type="range" id="ledV" min="4" max="36" step="1" value="18">
+    <span class="val" id="ledVVal">18</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Lücke</label>
+    <input type="range" id="gapSlider" min="0" max="8" step="1" value="1">
+    <span class="val" id="gapVal">1</span>
+  </div>
+  <div class="ctrl-divider"></div>
+  <!-- Playback -->
+  <div class="ctrl-group">
+    <label>Geschw.</label>
+    <input type="range" id="speedSlider" min="-4" max="4" step="1" value="0">
+    <span class="val" id="speedDisplay">1×</span>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="primary" id="loadBtn">▲ Video laden</button>
+  <button id="playBtn"     disabled>▶ Play</button>
+  <button id="pauseBtn"    disabled>⏸ Pause</button>
+  <button id="frameBtn"    disabled>▷ +1 Frame</button>
+  <button id="realtimeBtn" disabled>◉ Echtzeit</button>
+</div>
+
+<div class="panels">
+  <!-- Original -->
+  <div class="panel-wrap">
+    <div class="panel-header">
+      <div class="panel-dot dot-orig"></div>
+      <span class="panel-title">Original</span>
+      <span class="panel-meta">Referenz</span>
+    </div>
+    <div class="canvas-wrap" id="origWrap">
+      <canvas class="panel" id="canvasOrig"></canvas>
+      <div class="drop-overlay" id="dropOverlay">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M10 8l5 3-5 3V8z"/><path d="M8 21h8M12 17v4"/></svg>
+        <span>Video ablegen oder klicken</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CCFL -->
+  <div class="panel-wrap">
+    <div class="panel-header">
+      <div class="panel-dot dot-ccfl"></div>
+      <span class="panel-title">CCFL</span>
+      <span class="panel-meta" id="ccflMeta">6 Röhren · Blooming 2</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas class="panel" id="canvasCCFL"></canvas>
+    </div>
+  </div>
+
+  <!-- LED Array -->
+  <div class="panel-wrap">
+    <div class="panel-header">
+      <div class="panel-dot dot-led"></div>
+      <span class="panel-title">LED-Array</span>
+      <span class="panel-meta" id="ledMeta">32 × 18</span>
+    </div>
+    <div class="canvas-wrap">
+      <canvas class="panel" id="canvasLED"></canvas>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>Lokale Dimmung: LED-Array vs CCFL-Leuchtstoffröhren</span>
+  <span>·</span>
+  <span>Video bleibt lokal — kein Upload</span>
+</footer>
+
+<script>
+(function() {
+  const vid        = document.getElementById('hiddenVideo');
+  const canvasOrig = document.getElementById('canvasOrig');
+  const canvasCCFL = document.getElementById('canvasCCFL');
+  const canvasLED  = document.getElementById('canvasLED');
+  const offscreen  = document.createElement('canvas');
+  const ctxO = canvasOrig.getContext('2d');
+  const ctxC = canvasCCFL.getContext('2d');
+  const ctxL = canvasLED.getContext('2d');
+  const off  = offscreen.getContext('2d', { willReadFrequently: true });
+
+  let ledsH = 32, ledsV = 18, gap = 1;
+  let ccflCount = 6, bloom = 2;
+  let rafId = null, running = false;
+
+  const speedLabels = {'-4':'1/16×','-3':'1/8×','-2':'1/4×','-1':'1/2×','0':'1×','1':'2×','2':'4×','3':'8×','4':'16×'};
+  const speedValues = {'-4':0.0625,'-3':0.125,'-2':0.25,'-1':0.5,'0':1,'1':2,'2':4,'3':8,'4':16};
+
+  function sizeAll() {
+    const W = canvasOrig.parentElement.offsetWidth;
+    const H = Math.round(W * 9 / 16);
+    [canvasOrig, canvasCCFL, canvasLED].forEach(c => { c.width = W; c.height = H; });
+  }
+
+  function lum(r, g, b) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
+
+  function drawAll() {
+    const W = canvasOrig.width, H = canvasOrig.height;
+    if (!W || !H || !vid.videoWidth) return;
+
+    // Original
+    ctxO.drawImage(vid, 0, 0, W, H);
+
+    // Shared downscale
+    const sW = Math.max(ledsH, 64), sH = Math.max(ledsV, 36);
+    offscreen.width = sW; offscreen.height = sH;
+    off.drawImage(vid, 0, 0, sW, sH);
+    const imgData = off.getImageData(0, 0, sW, sH).data;
+
+    // ── CCFL ──
+    const bandH = sH / ccflCount;
+    const rawLum = new Float32Array(ccflCount);
+    for (let t = 0; t < ccflCount; t++) {
+      let sum = 0, count = 0;
+      const rowStart = Math.floor(t * bandH);
+      const rowEnd   = Math.floor((t + 1) * bandH);
+      for (let row = rowStart; row < rowEnd; row++) {
+        for (let col = 0; col < sW; col++) {
+          const i = (row * sW + col) * 4;
+          sum += lum(imgData[i], imgData[i+1], imgData[i+2]);
+          count++;
+        }
+      }
+      rawLum[t] = count > 0 ? sum / count : 0;
+    }
+
+    const bloomedLum = new Float32Array(ccflCount);
+    for (let t = 0; t < ccflCount; t++) {
+      let wSum = 0, total = 0;
+      for (let dt = -bloom; dt <= bloom; dt++) {
+        const idx = t + dt;
+        if (idx < 0 || idx >= ccflCount) continue;
+        const w = Math.exp(-(dt * dt) / (2 * Math.max(bloom, 0.5) * Math.max(bloom, 0.5)));
+        wSum += w;
+        total += rawLum[idx] * w;
+      }
+      bloomedLum[t] = wSum > 0 ? total / wSum : rawLum[t];
+    }
+
+    ctxC.fillStyle = '#000';
+    ctxC.fillRect(0, 0, W, H);
+    for (let t = 0; t < ccflCount; t++) {
+      const brightness = Math.min(255, bloomedLum[t]);
+      const y0 = Math.round(t * H / ccflCount);
+      const y1 = Math.round((t + 1) * H / ccflCount);
+      ctxC.drawImage(vid,
+        0, (y0 / H) * vid.videoHeight, vid.videoWidth, ((y1 - y0) / H) * vid.videoHeight,
+        0, y0, W, y1 - y0
+      );
+      const dimAlpha = 1 - brightness / 255;
+      ctxC.globalAlpha = dimAlpha;
+      ctxC.fillStyle = '#000';
+      ctxC.fillRect(0, y0, W, y1 - y0);
+      ctxC.globalAlpha = 1;
+      if (t < ccflCount - 1 && bloom > 0) {
+        const seam = Math.round((t + 1) * H / ccflCount);
+        ctxC.globalAlpha = 0.07 * (bloom / 5);
+        ctxC.fillStyle = '#fff';
+        ctxC.fillRect(0, seam - 1, W, 3);
+        ctxC.globalAlpha = 1;
+      }
+    }
+
+    // ── LED Array ──
+    const offL = document.createElement('canvas');
+    offL.width = ledsH; offL.height = ledsV;
+    const offLCtx = offL.getContext('2d', { willReadFrequently: true });
+    offLCtx.drawImage(vid, 0, 0, ledsH, ledsV);
+    const ledData = offLCtx.getImageData(0, 0, ledsH, ledsV).data;
+
+    ctxL.fillStyle = '#000';
+    ctxL.fillRect(0, 0, W, H);
+    const cellW = W / ledsH;
+    const cellH = H / ledsV;
+    for (let row = 0; row < ledsV; row++) {
+      for (let col = 0; col < ledsH; col++) {
+        const i = (row * ledsH + col) * 4;
+        const l = Math.round(lum(ledData[i], ledData[i+1], ledData[i+2]));
+        const x  = Math.round(col * cellW + gap / 2);
+        const y  = Math.round(row * cellH + gap / 2);
+        const sw = Math.round(cellW - gap);
+        const sh = Math.round(cellH - gap);
+        ctxL.fillStyle = `rgb(${l},${l},${l})`;
+        ctxL.fillRect(x, y, sw, sh);
+      }
+    }
+  }
+
+  function loop() { if (!running) return; drawAll(); rafId = requestAnimationFrame(loop); }
+  function startLoop() { if (running) return; running = true; loop(); }
+  function stopLoop()  { running = false; if (rafId) cancelAnimationFrame(rafId); }
+
+  function updateMeta() {
+    document.getElementById('ccflMeta').textContent = `${ccflCount} Röhren · Blooming ${bloom}`;
+    document.getElementById('ledMeta').textContent  = `${ledsH} × ${ledsV}`;
+  }
+
+  function loadVideo(f) {
+    if (!f || !f.type.startsWith('video/')) return;
+    vid.src = URL.createObjectURL(f);
+    vid.load();
+    document.getElementById('dropOverlay').style.display = 'none';
+    ['playBtn','pauseBtn','frameBtn','realtimeBtn'].forEach(id => {
+      document.getElementById(id).disabled = false;
+    });
+  }
+
+  // Events
+  document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+  document.getElementById('fileInput').addEventListener('change', e => loadVideo(e.target.files[0]));
+  document.getElementById('dropOverlay').addEventListener('click', () => document.getElementById('fileInput').click());
+  document.getElementById('origWrap').addEventListener('dragover', e => e.preventDefault());
+  document.getElementById('origWrap').addEventListener('drop', e => { e.preventDefault(); loadVideo(e.dataTransfer.files[0]); });
+
+  document.getElementById('playBtn').addEventListener('click',  () => { vid.play(); startLoop(); });
+  document.getElementById('pauseBtn').addEventListener('click', () => { vid.pause(); stopLoop(); drawAll(); });
+  document.getElementById('frameBtn').addEventListener('click', () => {
+    vid.pause(); stopLoop();
+    vid.currentTime = Math.min(vid.duration || 0, vid.currentTime + 1 / 30);
+    vid.addEventListener('seeked', () => drawAll(), { once: true });
+  });
+  document.getElementById('realtimeBtn').addEventListener('click', () => {
+    document.getElementById('speedSlider').value = 0;
+    document.getElementById('speedDisplay').textContent = '1×';
+    vid.playbackRate = 1;
+  });
+
+  document.getElementById('ccflCount').addEventListener('input', e => {
+    ccflCount = +e.target.value;
+    document.getElementById('ccflVal').textContent = ccflCount;
+    updateMeta(); if (!running) drawAll();
+  });
+  document.getElementById('bloomSlider').addEventListener('input', e => {
+    bloom = +e.target.value;
+    document.getElementById('bloomVal').textContent = bloom;
+    updateMeta(); if (!running) drawAll();
+  });
+  document.getElementById('ledH').addEventListener('input', e => {
+    ledsH = +e.target.value;
+    document.getElementById('ledHVal').textContent = ledsH;
+    updateMeta(); if (!running) drawAll();
+  });
+  document.getElementById('ledV').addEventListener('input', e => {
+    ledsV = +e.target.value;
+    document.getElementById('ledVVal').textContent = ledsV;
+    updateMeta(); if (!running) drawAll();
+  });
+  document.getElementById('gapSlider').addEventListener('input', e => {
+    gap = +e.target.value;
+    document.getElementById('gapVal').textContent = gap;
+    if (!running) drawAll();
+  });
+  document.getElementById('speedSlider').addEventListener('input', e => {
+    const v = e.target.value;
+    vid.playbackRate = speedValues[v];
+    document.getElementById('speedDisplay').textContent = speedLabels[v];
+  });
+
+  window.addEventListener('resize', () => { sizeAll(); if (!running) drawAll(); });
+  sizeAll();
+  updateMeta();
+})();
+</script>
+</body>
+</html>
