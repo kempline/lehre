@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RGB ↔ YCbCr Explorer</title>
+<title>Y′CbCr Explorer</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -22,6 +22,11 @@
     --badge-y: #b97a00;
     --badge-cb: #1860a8;
     --badge-cr: #a02020;
+    --badge-r: #b02020;
+    --badge-g: #1a7a30;
+    --badge-b: #1850b0;
+    --warn: #b05a00;
+    --warn-bg: #fff3e0;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -36,6 +41,11 @@
       --badge-y: #d4a020;
       --badge-cb: #5090d8;
       --badge-cr: #d06060;
+      --badge-r: #e06a6a;
+      --badge-g: #5cc070;
+      --badge-b: #6a9ae8;
+      --warn: #f0a050;
+      --warn-bg: #3a2c1a;
     }
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,64 +55,89 @@
     color: var(--text);
     background: var(--bg);
     padding: 1.5rem;
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
   }
   h1 { font-size: 20px; font-weight: 500; margin-bottom: 0.25rem; }
   .subtitle { font-size: 13px; color: var(--text2); margin-bottom: 1.25rem; }
-  .upload-zone {
-    border: 0.5px dashed var(--border2);
+  .panel {
+    padding: 12px 14px;
     border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    text-align: center;
-    cursor: pointer;
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    margin-bottom: 1rem;
+  }
+  .panel h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+
+  /* Steuerung */
+  .ctrl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; }
+  .ctrl-label { font-size: 12px; font-weight: 500; color: var(--text2); min-width: 92px; }
+  .seg { display: inline-flex; border: 0.5px solid var(--border2); border-radius: var(--radius-md); overflow: hidden; }
+  .seg button {
+    font: 12px var(--font);
+    padding: 5px 11px;
+    border: none;
+    border-right: 0.5px solid var(--border);
+    background: var(--bg);
     color: var(--text2);
-    transition: background .15s;
-    margin-bottom: 1rem;
+    cursor: pointer;
   }
-  .upload-zone:hover { background: var(--bg2); }
-  .canvases {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    margin-bottom: 1rem;
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { background: var(--bg3); }
+  .seg button.active { background: var(--text); color: var(--bg); }
+  .seg button.fake { font-style: italic; }
+  .seg button.fake::after { content: ' *'; }
+  .btn {
+    font: 12px var(--font);
+    cursor: pointer;
+    padding: 5px 11px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text2);
+    display: inline-flex; align-items: center; gap: 4px;
   }
-  .ch-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .btn:hover { background: var(--bg3); }
+  .chk { font-size: 12px; color: var(--text2); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .info {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text2);
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+  }
+  .info b { color: var(--text); font-weight: 500; }
+  .info .warn { color: var(--warn); font-weight: 500; }
+  .info .num { font-family: var(--mono); color: var(--text); }
+  .drop-active { outline: 2px dashed var(--text2); outline-offset: 4px; }
+
+  /* Bildansichten */
+  .views { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .loupes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 1rem; }
+  .ch-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .ch-label { font-size: 11px; font-weight: 500; color: var(--text2); text-align: center; }
+  .ch-label .sub { font-weight: 400; color: var(--text3); }
   canvas.ch {
     width: 100%;
     border-radius: var(--radius-md);
     border: 0.5px solid var(--border);
     display: block;
+    background: var(--bg3);
   }
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-  }
+  canvas.click { cursor: crosshair; }
+  canvas.loupe { image-rendering: pixelated; }
+  .loupe-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+  .loupe-head h3 { margin-bottom: 0; }
+
+  /* Schieberegler */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
   .section-title { font-size: 13px; font-weight: 500; }
-  .reset-btn {
-    font-size: 12px;
-    cursor: pointer;
-    padding: 3px 10px;
-    border-radius: var(--radius-md);
-    border: 0.5px solid var(--border2);
-    background: transparent;
-    color: var(--text2);
-    font-family: var(--font);
-  }
-  .reset-btn:hover { background: var(--bg2); }
-  .sliders {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 1rem;
-  }
+  .sliders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 0.4rem; }
   .sl-group {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    display: flex; flex-direction: column; gap: 5px;
     padding: 10px 12px;
     border-radius: var(--radius-lg);
     border: 0.5px solid var(--border);
@@ -111,96 +146,139 @@
   .sl-group label { font-size: 12px; font-weight: 500; }
   .sl-row { display: flex; align-items: center; gap: 6px; }
   .sl-row .end-label { font-size: 11px; color: var(--text3); }
-  .sl-row input[type=range] {
-    flex: 1;
-    accent-color: var(--text);
-    cursor: pointer;
-  }
-  .sl-val { font-size: 12px; color: var(--text2); min-width: 34px; text-align: right; }
-  .bottom-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 1rem;
-  }
-  .matrix-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 1rem;
-  }
-  .mcard {
-    padding: 12px 14px;
-    border-radius: var(--radius-lg);
-    border: 0.5px solid var(--border);
-    background: var(--bg2);
-  }
+  .sl-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--text); cursor: pointer; }
+  .sl-val { font-size: 12px; color: var(--text2); min-width: 34px; text-align: right; font-family: var(--mono); }
+  .note { font-size: 11px; color: var(--text3); margin-bottom: 1rem; }
+
+  /* Matrizen */
+  .matrix-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .mcard { padding: 12px 14px; border-radius: var(--radius-lg); border: 0.5px solid var(--border); background: var(--bg2); overflow-x: auto; }
   .mcard h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
+  .mcard h3 .warn { color: var(--warn); }
   .matrix {
     display: grid;
-    grid-template-columns: auto repeat(3, 1fr) auto auto;
-    gap: 2px 6px;
+    grid-template-columns: auto repeat(3, auto) auto auto;
+    gap: 2px 8px;
     font-size: 11px;
     font-family: var(--mono);
     line-height: 1.7;
     align-items: center;
+    justify-content: start;
   }
   .matrix .row-label { color: var(--text2); font-weight: 500; white-space: nowrap; }
-  .matrix .coeff { color: var(--text); text-align: right; }
+  .matrix .coeff { color: var(--text); text-align: right; white-space: nowrap; }
   .matrix .eq { color: var(--text3); text-align: center; }
-  .matrix .result { font-weight: 500; text-align: right; }
+  .matrix .result { font-weight: 500; text-align: right; min-width: 28px; }
   .badge-y  { color: var(--badge-y); }
   .badge-cb { color: var(--badge-cb); }
   .badge-cr { color: var(--badge-cr); }
-  .pixel-panel {
-    padding: 12px 14px;
-    border-radius: var(--radius-lg);
-    border: 0.5px solid var(--border);
-    background: var(--bg2);
-    margin-bottom: 1rem;
-  }
-  .pixel-panel h3 { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 8px; }
-  .pixel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .badge-r  { color: var(--badge-r); }
+  .badge-g  { color: var(--badge-g); }
+  .badge-b  { color: var(--badge-b); }
+
+  /* Pixel-Inspector */
+  .pixel-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
   .pixel-col-title { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
-  .pswatch {
-    width: 36px; height: 36px;
-    border-radius: var(--radius-md);
-    border: 0.5px solid var(--border);
-    flex-shrink: 0;
+  .pswatch { width: 36px; height: 36px; border-radius: var(--radius-md); border: 0.5px solid var(--border); flex-shrink: 0; }
+  .prow { font-size: 12px; font-family: var(--mono); line-height: 1.8; }
+  .changed { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+
+  details.notes { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  details.notes summary { cursor: pointer; font-weight: 500; color: var(--text); font-size: 13px; }
+  details.notes ul { margin: 8px 0 0 18px; }
+  details.notes li { margin-bottom: 4px; }
+  .hint { font-size: 12px; color: var(--text2); text-align: center; margin: 4px 0 1rem; }
+
+  @media (max-width: 700px) {
+    body { padding: 1rem; }
+    .views, .matrix-section, .sliders { grid-template-columns: minmax(0, 1fr); }
+    .pixel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .loupes, .channels { gap: 4px; }
   }
-  .prow {
-    font-size: 12px;
-    font-family: var(--mono);
-    line-height: 1.8;
-  }
-  .hint { font-size: 12px; color: var(--text2); text-align: center; margin-top: 4px; }
 </style>
 </head>
 <body>
 
-<h1>RGB ↔ YCbCr Explorer</h1>
-<p class="subtitle">Interaktive Visualisierung der Farbraumkonvertierung mit Transformationsmatrix</p>
+<h1>Y′CbCr Explorer</h1>
+<p class="subtitle">Farbraumkonvertierung RGB ↔ Y′CbCr, Transformationsmatrizen und Chroma-Subsampling</p>
 
-<div class="upload-zone" id="dropzone">
-  <i class="ti ti-upload" style="font-size:22px;display:block;margin-bottom:6px"></i>
-  Bild hierher ziehen oder klicken zum Hochladen
-  <input type="file" id="fileInput" accept="image/*" style="display:none">
+<!-- ───────────── Steuerung ───────────── -->
+<div class="panel" id="controls">
+  <div class="ctrl-row">
+    <span class="ctrl-label">Bild</span>
+    <div class="seg" id="seg-pattern">
+      <button data-v="bw">Schwarz auf Weiß</button>
+      <button data-v="color">Farbige Schrift</button>
+      <button data-v="bars">Farbbalken &amp; Streifen</button>
+    </div>
+    <button class="btn" id="uploadBtn"><i class="ti ti-upload"></i> Eigenes Bild …</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Matrix</span>
+    <div class="seg" id="seg-matrix">
+      <button data-v="601">BT.601</button>
+      <button data-v="709">BT.709</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="mismatch"> Mismatch-Demo: mit der jeweils anderen Matrix dekodieren</label>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Abtastung</span>
+    <div class="seg" id="seg-mode">
+      <button data-v="444">4:4:4</button>
+      <button data-v="422">4:2:2</button>
+      <button data-v="420">4:2:0</button>
+      <button data-v="411">4:1:1</button>
+      <button data-v="244" class="fake">2:4:4</button>
+    </div>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Rekonstruktion</span>
+    <div class="seg" id="seg-up">
+      <button data-v="nearest">Pixelwiederholung</button>
+      <button data-v="bilinear">Bilinear interpoliert</button>
+    </div>
+  </div>
+  <div class="info" id="info"></div>
 </div>
 
-<div class="canvases">
-  <div class="ch-wrap"><div class="ch-label">Original (RGB)</div><canvas class="ch" id="c-orig"></canvas></div>
-  <div class="ch-wrap"><div class="ch-label badge-y">Y — Luminanz</div><canvas class="ch" id="c-y"></canvas></div>
-  <div class="ch-wrap"><div class="ch-label badge-cb">Cb — Blau ↔ Gelb</div><canvas class="ch" id="c-cb"></canvas></div>
-  <div class="ch-wrap"><div class="ch-label badge-cr">Cr — Rot ↔ Cyan</div><canvas class="ch" id="c-cr"></canvas></div>
+<!-- ───────────── Hauptansichten ───────────── -->
+<div class="views">
+  <div class="ch-wrap"><div class="ch-label">Original (R′G′B′) <span class="sub">– klicken für Lupe</span></div><canvas class="ch click" id="v-orig"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label">Ergebnis (kodiert → dekodiert) <span class="sub">– klicken für Lupe</span></div><canvas class="ch click" id="v-res"></canvas></div>
 </div>
 
+<div class="panel">
+  <div class="loupe-head">
+    <h3>Lupe <span style="font-weight:400">(Pfeiltasten verschieben um 1 Pixel, Klick in die Lupe wählt Pixel)</span></h3>
+    <div class="seg" id="seg-zoom">
+      <button data-v="4">4×</button>
+      <button data-v="8">8×</button>
+      <button data-v="16">16×</button>
+    </div>
+  </div>
+  <div class="loupes">
+    <div class="ch-wrap"><div class="ch-label">Original</div><canvas class="ch loupe click" id="l-orig"></canvas></div>
+    <div class="ch-wrap"><div class="ch-label">Ergebnis</div><canvas class="ch loupe click" id="l-res"></canvas></div>
+    <div class="ch-wrap"><div class="ch-label">Differenz |Ergebnis − Original| × 4</div><canvas class="ch loupe click" id="l-diff"></canvas></div>
+  </div>
+</div>
+
+<!-- ───────────── Kanäle ───────────── -->
+<div class="channels">
+  <div class="ch-wrap"><div class="ch-label badge-y">Y′ — Luma <span class="sub">(nach Abtastung)</span></div><canvas class="ch" id="c-y"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label badge-cb">Cb — Blau ↔ Gelb <span class="sub">(nach Abtastung)</span></div><canvas class="ch" id="c-cb"></canvas></div>
+  <div class="ch-wrap"><div class="ch-label badge-cr">Cr — Rot ↔ Cyan <span class="sub">(nach Abtastung)</span></div><canvas class="ch" id="c-cr"></canvas></div>
+</div>
+
+<!-- ───────────── Offsets ───────────── -->
 <div class="section-header">
   <span class="section-title">Kanalverschiebung</span>
-  <button class="reset-btn" id="resetBtn"><i class="ti ti-refresh"></i> zurücksetzen</button>
+  <button class="btn" id="resetBtn"><i class="ti ti-refresh"></i> zurücksetzen</button>
 </div>
 <div class="sliders">
   <div class="sl-group">
-    <label class="badge-y">Y — Helligkeit</label>
+    <label class="badge-y">Y′ — Helligkeit</label>
     <div class="sl-row">
       <span class="end-label">−128</span>
       <input type="range" id="sl-y" min="-128" max="128" step="1" value="0">
@@ -227,228 +305,535 @@
     </div>
   </div>
 </div>
+<p class="note">Nach dem Offset werden die Werte auf 8 Bit gerundet und auf 0–255 begrenzt, wie in einem echten 8-Bit-Signal. Große Offsets erzeugen deshalb Clipping.</p>
 
-<div class="bottom-grid">
-  <div class="ch-wrap"><div class="ch-label">Rekonstruiert (mit Offset)</div><canvas class="ch" id="c-recon"></canvas></div>
-  <div class="ch-wrap">
-    <div class="ch-label" style="color:var(--text2)">Pixel-Inspector <span style="font-weight:400">(klicken)</span></div>
-    <canvas class="ch" id="c-click" style="cursor:crosshair"></canvas>
-  </div>
-</div>
-
+<!-- ───────────── Matrizen ───────────── -->
 <div class="matrix-section">
   <div class="mcard">
-    <h3>RGB → YCbCr (Vorwärts)</h3>
+    <h3 id="h-fwd">R′G′B′ → Y′CbCr (Kodierung)</h3>
     <div class="matrix" id="mtx-fwd"></div>
   </div>
   <div class="mcard">
-    <h3>YCbCr (angepasst) → RGB (Rückwärts)</h3>
+    <h3 id="h-inv">Y′CbCr → R′G′B′ (Dekodierung)</h3>
     <div class="matrix" id="mtx-inv"></div>
   </div>
 </div>
 
-<div class="pixel-panel" id="pixelPanel" style="display:none">
-  <h3>Pixelwerte (angeklickter Pixel)</h3>
+<!-- ───────────── Pixel-Inspector ───────────── -->
+<div class="panel">
+  <h3 id="px-title">Pixelwerte</h3>
   <div class="pixel-grid">
     <div>
-      <div class="pixel-col-title">Originalfarbe (RGB)</div>
+      <div class="pixel-col-title">Original R′G′B′</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="pswatch" id="sw-orig"></div>
         <div class="prow" id="rgb-vals"></div>
       </div>
     </div>
     <div>
-      <div class="pixel-col-title">YCbCr (berechnet)</div>
+      <div class="pixel-col-title">Y′CbCr (berechnet)</div>
       <div class="prow" id="ycbcr-vals"></div>
     </div>
     <div>
-      <div class="pixel-col-title">YCbCr + Offset → RGB</div>
+      <div class="pixel-col-title">Y′CbCr nach Offset + Abtastung</div>
+      <div class="prow" id="proc-vals"></div>
+    </div>
+    <div>
+      <div class="pixel-col-title">Ergebnis R′G′B′</div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="pswatch" id="sw-recon"></div>
-        <div class="prow" id="recon-vals"></div>
+        <div class="pswatch" id="sw-res"></div>
+        <div class="prow" id="res-vals"></div>
       </div>
     </div>
   </div>
 </div>
 
-<p class="hint" id="hint">← Bild hochladen, dann Schieberegler bewegen oder Pixel anklicken für Detailwerte</p>
+<div class="panel">
+  <details class="notes">
+    <summary>Hinweise und bewusste Vereinfachungen</summary>
+    <ul>
+      <li><b>Y′ ist Luma, nicht Luminanz.</b> Die Matrix wird auf gammakodierte R′G′B′-Werte angewendet. Die photometrische Luminanz Y müsste aus linearen RGB-Werten berechnet werden. Deshalb schreibt man Y′ und R′G′B′ (mit Strich).</li>
+      <li><b>Full Range.</b> Gerechnet wird mit 0–255 für Y′ und 128 ± 127,5 für Cb/Cr (wie JPEG/JFIF). Video verwendet meist Limited Range (Y′ 16–235, Cb/Cr 16–240).</li>
+      <li><b>BT.709 auf sRGB-Werten.</b> sRGB und BT.709 haben dieselben Primärfarben, aber leicht unterschiedliche Übertragungsfunktionen. Für die Matrix-Demo spielt das keine Rolle.</li>
+      <li><b>Chroma-Positionierung.</b> Beim Unterabtasten wird über 2 bzw. 2×2 Pixel gemittelt (Position mittig, wie bei JPEG). Broadcast-Formate positionieren Chroma teils „co-sited“ auf dem linken Pixel und filtern aufwendiger. Das Prinzip bleibt gleich.</li>
+      <li><b>2:4:4 existiert nicht.</b> Luma wird horizontal halbiert, Chroma bleibt voll aufgelöst. Obwohl mit 20 bit/px <i>mehr</i> Daten übrig bleiben als bei 4:2:2 (16 bit/px), sieht das Ergebnis bei Schrift deutlich schlechter aus: Das Auge löst Helligkeitskanten viel feiner auf als Farbkanten.</li>
+      <li><b>Mismatch-Demo.</b> Kodiert man mit BT.601 und dekodiert mit BT.709 (oder umgekehrt), verschieben sich die Farben, während Graustufen unverändert bleiben. Das ist ein klassischer Fehler bei der SD↔HD-Wandlung.</li>
+    </ul>
+  </details>
+</div>
 
 <script>
-const W = 640, H = 480;
-let origData = null, offY = 0, offCb = 0, offCr = 0;
-let lastPx = -1, lastPy = -1;
+'use strict';
 
-function clamp(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+/* ════════════════ Definitionen ════════════════ */
 
-function rgbToYcbcr(r, g, b) {
-  return [
-    0.299 * r + 0.587 * g + 0.114 * b,
-    128 - 0.168736 * r - 0.331264 * g + 0.5 * b,
-    128 + 0.5 * r - 0.418688 * g - 0.081312 * b
-  ];
+const MATRICES = {
+  '601': { name: 'BT.601', Kr: 0.299,  Kb: 0.114  },
+  '709': { name: 'BT.709', Kr: 0.2126, Kb: 0.0722 },
+};
+
+// Abtastfaktoren [horizontal, vertikal] für Luma (y) und Chroma (c)
+const MODES = {
+  '444': { label: '4:4:4', y: [1, 1], c: [1, 1],
+           desc: 'Keine Unterabtastung – jedes Pixel hat eigene Y′-, Cb- und Cr-Werte.' },
+  '422': { label: '4:2:2', y: [1, 1], c: [2, 1],
+           desc: 'Cb/Cr mit halber horizontaler Auflösung (Studio/Broadcast, z. B. ProRes 422, XAVC).' },
+  '420': { label: '4:2:0', y: [1, 1], c: [2, 2],
+           desc: 'Cb/Cr mit halber horizontaler und halber vertikaler Auflösung (JPEG, H.264/HEVC, Blu-ray, Streaming).' },
+  '411': { label: '4:1:1', y: [1, 1], c: [4, 1],
+           desc: 'Cb/Cr mit einem Viertel der horizontalen Auflösung (DV NTSC).' },
+  '244': { label: '2:4:4', y: [2, 1], c: [1, 1], fake: true,
+           desc: 'Luma mit halber horizontaler Auflösung, Chroma voll aufgelöst – also genau umgekehrt wie in der Praxis.' },
+};
+
+const LW = 320, LH = 240;   // interne Lupengröße in Pixeln
+
+function coeffs(id) {
+  const { Kr, Kb } = MATRICES[id];
+  const Kg = 1 - Kr - Kb;
+  return {
+    Kr, Kg, Kb,
+    // Vorwärts: Cb = (B′−Y′)/(2(1−Kb)), Cr = (R′−Y′)/(2(1−Kr))
+    cbR: -Kr / (2 * (1 - Kb)), cbG: -Kg / (2 * (1 - Kb)), cbB: 0.5,
+    crR: 0.5, crG: -Kg / (2 * (1 - Kr)), crB: -Kb / (2 * (1 - Kr)),
+    // Rückwärts
+    rCr: 2 * (1 - Kr),
+    gCb: -2 * Kb * (1 - Kb) / Kg,
+    gCr: -2 * Kr * (1 - Kr) / Kg,
+    bCb: 2 * (1 - Kb),
+  };
 }
 
-function ycbcrToRgb(Y, Cb, Cr) {
-  return [
-    clamp(Y + 1.402 * (Cr - 128)),
-    clamp(Y - 0.344136 * (Cb - 128) - 0.714136 * (Cr - 128)),
-    clamp(Y + 1.772 * (Cb - 128))
-  ];
+/* ════════════════ Zustand ════════════════ */
+
+let W = 640, H = 480;
+let orig = null;                 // Uint8ClampedArray RGBA
+let fY, fCb, fCr;                // Vorwärts-Ergebnis (Float, ungerundet)
+let pY, pCb, pCr;                // nach Offset, Quantisierung, Abtastung
+let res, diffImg;                // RGBA-Ergebnis und Differenzbild
+let psnr = Infinity;
+
+const state = {
+  matrix: '601', mismatch: false, mode: '444', up: 'nearest',
+  off: { y: 0, cb: 0, cr: 0 },
+  sel: { x: 0, y: 0 },
+  zoom: 8,
+};
+
+const $ = id => document.getElementById(id);
+const q8 = v => v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
+const decMatrix = () => state.mismatch ? (state.matrix === '601' ? '709' : '601') : state.matrix;
+const de = (v, d = 1) => v.toFixed(d).replace('.', ',');
+
+const off = { orig: document.createElement('canvas'), res: document.createElement('canvas'), diff: document.createElement('canvas') };
+
+function setImage(cv, data) {
+  cv.width = W; cv.height = H;
+  cv.getContext('2d').putImageData(new ImageData(data, W, H), 0, 0);
 }
 
-function getCtx(id) {
-  const c = document.getElementById(id);
+/* ════════════════ Pipeline ════════════════ */
+
+function forward() {
+  const e = coeffs(state.matrix), n = W * H;
+  fY = new Float32Array(n); fCb = new Float32Array(n); fCr = new Float32Array(n);
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const r = orig[j], g = orig[j + 1], b = orig[j + 2];
+    fY[i]  = e.Kr * r + e.Kg * g + e.Kb * b;
+    fCb[i] = 128 + e.cbR * r + e.cbG * g + e.cbB * b;
+    fCr[i] = 128 + e.crR * r + e.crG * g + e.crB * b;
+  }
+}
+
+// Unterabtastung (Mittelwert über fx×fy Block) und Rückskalierung auf volle Auflösung
+function resample(src, fx, fy) {
+  if (fx === 1 && fy === 1) return src;
+  const w = Math.ceil(W / fx), h = Math.ceil(H / fy);
+  const small = new Float32Array(w * h);
+  for (let sy = 0; sy < h; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      let sum = 0, cnt = 0;
+      for (let dy = 0; dy < fy; dy++) {
+        const y = sy * fy + dy; if (y >= H) break;
+        for (let dx = 0; dx < fx; dx++) {
+          const x = sx * fx + dx; if (x >= W) break;
+          sum += src[y * W + x]; cnt++;
+        }
+      }
+      small[sy * w + sx] = q8(sum / cnt);
+    }
+  }
+  const dst = new Float32Array(W * H);
+  if (state.up === 'nearest') {
+    for (let y = 0; y < H; y++) {
+      const row = Math.floor(y / fy) * w;
+      for (let x = 0; x < W; x++) dst[y * W + x] = small[row + Math.floor(x / fx)];
+    }
+  } else {
+    for (let y = 0; y < H; y++) {
+      let syf = (y + 0.5) / fy - 0.5; syf = Math.min(Math.max(syf, 0), h - 1);
+      const y0 = Math.floor(syf), y1 = Math.min(y0 + 1, h - 1), ty = syf - y0;
+      for (let x = 0; x < W; x++) {
+        let sxf = (x + 0.5) / fx - 0.5; sxf = Math.min(Math.max(sxf, 0), w - 1);
+        const x0 = Math.floor(sxf), x1 = Math.min(x0 + 1, w - 1), tx = sxf - x0;
+        const a = small[y0 * w + x0] * (1 - tx) + small[y0 * w + x1] * tx;
+        const b = small[y1 * w + x0] * (1 - tx) + small[y1 * w + x1] * tx;
+        dst[y * W + x] = q8(a * (1 - ty) + b * ty);
+      }
+    }
+  }
+  return dst;
+}
+
+function processImage() {
+  const n = W * H, o = state.off;
+  const Y = new Float32Array(n), Cb = new Float32Array(n), Cr = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    Y[i] = q8(fY[i] + o.y); Cb[i] = q8(fCb[i] + o.cb); Cr[i] = q8(fCr[i] + o.cr);
+  }
+  const m = MODES[state.mode];
+  pY  = resample(Y,  m.y[0], m.y[1]);
+  pCb = resample(Cb, m.c[0], m.c[1]);
+  pCr = resample(Cr, m.c[0], m.c[1]);
+
+  const d = coeffs(decMatrix());
+  res = new Uint8ClampedArray(n * 4);
+  diffImg = new Uint8ClampedArray(n * 4);
+  const chY = new Uint8ClampedArray(n * 4), chCb = new Uint8ClampedArray(n * 4), chCr = new Uint8ClampedArray(n * 4);
+  let se = 0;
+  for (let i = 0, j = 0; i < n; i++, j += 4) {
+    const y = pY[i], cb = pCb[i] - 128, cr = pCr[i] - 128;
+    const R = q8(y + d.rCr * cr), G = q8(y + d.gCb * cb + d.gCr * cr), B = q8(y + d.bCb * cb);
+    res[j] = R; res[j + 1] = G; res[j + 2] = B; res[j + 3] = 255;
+    const dr = R - orig[j], dg = G - orig[j + 1], db = B - orig[j + 2];
+    se += dr * dr + dg * dg + db * db;
+    diffImg[j] = Math.abs(dr) * 4; diffImg[j + 1] = Math.abs(dg) * 4; diffImg[j + 2] = Math.abs(db) * 4; diffImg[j + 3] = 255;
+
+    chY[j] = chY[j + 1] = chY[j + 2] = y; chY[j + 3] = 255;
+    const cbv = cb * -0.7 + 128;
+    chCb[j] = cbv; chCb[j + 1] = cbv; chCb[j + 2] = cb + 128; chCb[j + 3] = 255;
+    const crv = cr * -0.5 + 128;
+    chCr[j] = cr + 128; chCr[j + 1] = crv; chCr[j + 2] = crv; chCr[j + 3] = 255;
+  }
+  const mse = se / (3 * n);
+  psnr = mse === 0 ? Infinity : 10 * Math.log10(255 * 255 / mse);
+
+  setImage(off.res, res);
+  setImage(off.diff, diffImg);
+  setImage($('c-y'), chY);
+  setImage($('c-cb'), chCb);
+  setImage($('c-cr'), chCr);
+  updateInfo();
+  drawViews();
+}
+
+/* ════════════════ Darstellung ════════════════ */
+
+function loupeRect() {
+  const z = state.zoom, lw = LW / z, lh = LH / z;
+  let sx = state.sel.x - Math.floor(lw / 2), sy = state.sel.y - Math.floor(lh / 2);
+  sx = Math.max(0, Math.min(sx, W - lw));
+  sy = Math.max(0, Math.min(sy, H - lh));
+  return { sx, sy, lw, lh, z };
+}
+
+function drawBig(id, src, lr) {
+  const c = $(id), ctx = c.getContext('2d');
   c.width = W; c.height = H;
-  return c.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  const lw = Math.max(1, Math.round(W / 300));
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = '#ff00ff';
+  ctx.strokeRect(lr.sx - lw / 2, lr.sy - lw / 2, Math.min(lr.lw, W) + lw, Math.min(lr.lh, H) + lw);
 }
 
-function renderMatrix(fwdId, invId, r, g, b, oY, oCb, oCr) {
-  const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
-  const Yadj = clamp(Y + oY), Cbadj = clamp(Cb + oCb), Cradj = clamp(Cr + oCr);
-  const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
+function drawLoupe(id, src, lr) {
+  const c = $(id), ctx = c.getContext('2d');
+  c.width = LW; c.height = LH;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, LW, LH);
+  const sw = Math.min(lr.lw, W), sh = Math.min(lr.lh, H), z = lr.z;
+  ctx.drawImage(src, lr.sx, lr.sy, sw, sh, 0, 0, sw * z, sh * z);
+  if (z >= 8) {
+    ctx.strokeStyle = 'rgba(128,128,128,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 1; x < sw; x++) { ctx.moveTo(x * z + 0.5, 0); ctx.lineTo(x * z + 0.5, sh * z); }
+    for (let y = 1; y < sh; y++) { ctx.moveTo(0, y * z + 0.5); ctx.lineTo(sw * z, y * z + 0.5); }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#ff00ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect((state.sel.x - lr.sx) * z + 1, (state.sel.y - lr.sy) * z + 1, z - 2, z - 2);
+}
 
+function drawViews() {
+  const lr = loupeRect();
+  drawBig('v-orig', off.orig, lr);
+  drawBig('v-res', off.res, lr);
+  drawLoupe('l-orig', off.orig, lr);
+  drawLoupe('l-res', off.res, lr);
+  drawLoupe('l-diff', off.diff, lr);
+  updateInspector();
+}
+
+function updateInfo() {
+  const m = MODES[state.mode];
+  const spp = 1 / (m.y[0] * m.y[1]) + 2 / (m.c[0] * m.c[1]);
+  const bits = 8 * spp;
+  const pct = Math.round(spp / 3 * 100);
+  let html = `<b>${m.label}</b> — ${m.desc}<br>`;
+  if (m.fake) html += `<span class="warn">* Fiktiver Modus – existiert in keinem Standard.</span><br>`;
+  html += `Datenmenge: <span class="num">${de(spp, 2)}</span> Abtastwerte/Pixel = <span class="num">${de(bits, 0)}</span> bit/px bei 8 bit `
+        + `(<span class="num">${pct} %</span> von 4:4:4) · `
+        + `PSNR gegenüber Original: <span class="num">${psnr === Infinity ? '∞' : de(psnr) + ' dB'}</span>`;
+  const enc = MATRICES[state.matrix].name, dec = MATRICES[decMatrix()].name;
+  html += `<br>Kodierung: <span class="num">${enc}</span> · Dekodierung: <span class="num">${dec}</span>`
+        + (state.mismatch ? ` <span class="warn">– Mismatch!</span>` : '')
+        + ` · Bildgröße: <span class="num">${W}×${H}</span>`;
+  $('info').innerHTML = html;
+}
+
+function f4(v, first) {
+  const s = v < 0 ? '−' : (first ? '\u2007' : '+');
+  return s + Math.abs(v).toFixed(4);
+}
+
+function renderMatrices(r, g, b, Yp, Cbp, Crp, R, G, B) {
+  const e = coeffs(state.matrix), d = coeffs(decMatrix());
+  const Y = e.Kr * r + e.Kg * g + e.Kb * b;
+  const Cb = 128 + e.cbR * r + e.cbG * g + e.cbB * b;
+  const Cr = 128 + e.crR * r + e.crG * g + e.crB * b;
   const ci = s => `<span class="coeff">${s}</span>`;
   const rl = s => `<span class="row-label">${s}</span>`;
   const re = (s, cls) => `<span class="result ${cls || ''}">${s}</span>`;
   const eq = `<span class="eq">=</span>`;
 
-  document.getElementById(fwdId).innerHTML = `
-    ${rl('Y')}  ${ci('0.2990·' + r)} ${ci('+0.5870·' + g)} ${ci('+0.1140·' + b)}       ${eq} ${re(Math.round(Y), 'badge-y')}
-    ${rl('Cb')} ${ci('−0.1687·' + r)} ${ci('−0.3313·' + g)} ${ci('+0.5000·' + b + '+128')} ${eq} ${re(Math.round(Cb), 'badge-cb')}
-    ${rl('Cr')} ${ci('+0.5000·' + r)} ${ci('−0.4187·' + g)} ${ci('−0.0813·' + b + '+128')} ${eq} ${re(Math.round(Cr), 'badge-cr')}
-  `;
+  $('h-fwd').innerHTML = `R′G′B′ → Y′CbCr (Kodierung, ${MATRICES[state.matrix].name})`;
+  $('h-inv').innerHTML = `Y′CbCr → R′G′B′ (Dekodierung, ${MATRICES[decMatrix()].name})`
+    + (state.mismatch ? ' <span class="warn">– Mismatch!</span>' : '');
 
-  document.getElementById(invId).innerHTML = `
-    ${rl('R')} ${ci('1·' + Yadj)} ${ci('+0·(Cb−128)')}              ${ci('+1.4020·(' + Cradj + '−128)')} ${eq} ${re(rr, 'badge-cr')}
-    ${rl('G')} ${ci('1·' + Yadj)} ${ci('−0.3441·(' + Cbadj + '−128)')} ${ci('−0.7141·(' + Cradj + '−128)')} ${eq} ${re(rg, 'badge-y')}
-    ${rl('B')} ${ci('1·' + Yadj)} ${ci('+1.7720·(' + Cbadj + '−128)')} ${ci('+0·(Cr−128)')}              ${eq} ${re(rb, 'badge-cb')}
-  `;
+  $('mtx-fwd').innerHTML =
+    rl('Y′') + ci(f4(e.Kr, true) + '·' + r) + ci(f4(e.Kg) + '·' + g) + ci(f4(e.Kb) + '·' + b) + eq + re(q8(Y), 'badge-y') +
+    rl('Cb') + ci(f4(e.cbR, true) + '·' + r) + ci(f4(e.cbG) + '·' + g) + ci(f4(e.cbB) + '·' + b + ' +128') + eq + re(q8(Cb), 'badge-cb') +
+    rl('Cr') + ci(f4(e.crR, true) + '·' + r) + ci(f4(e.crG) + '·' + g) + ci(f4(e.crB) + '·' + b + ' +128') + eq + re(q8(Cr), 'badge-cr');
+
+  $('mtx-inv').innerHTML =
+    rl('R′') + ci('1·' + Yp) + ci('+0·(Cb−128)') + ci(f4(d.rCr) + '·(' + Crp + '−128)') + eq + re(R, 'badge-r') +
+    rl('G′') + ci('1·' + Yp) + ci(f4(d.gCb) + '·(' + Cbp + '−128)') + ci(f4(d.gCr) + '·(' + Crp + '−128)') + eq + re(G, 'badge-g') +
+    rl('B′') + ci('1·' + Yp) + ci(f4(d.bCb) + '·(' + Cbp + '−128)') + ci('+0·(Cr−128)') + eq + re(B, 'badge-b');
 }
 
-function drawChannels() {
-  if (!origData) return;
-  const px = origData, n = W * H;
-  const ctxO = getCtx('c-orig'), ctxY = getCtx('c-y'), ctxCb = getCtx('c-cb'), ctxCr = getCtx('c-cr');
-  const ctxR = getCtx('c-recon'), ctxC = getCtx('c-click');
-  const dO = ctxO.createImageData(W, H), dY = ctxY.createImageData(W, H);
-  const dCb = ctxCb.createImageData(W, H), dCr = ctxCr.createImageData(W, H);
-  const dR = ctxR.createImageData(W, H), dC = ctxC.createImageData(W, H);
+function updateInspector() {
+  const { x, y } = state.sel, i = y * W + x, j = i * 4;
+  const r = orig[j], g = orig[j + 1], b = orig[j + 2];
+  const Y = q8(fY[i]), Cb = q8(fCb[i]), Cr = q8(fCr[i]);
+  const Yp = pY[i], Cbp = pCb[i], Crp = pCr[i];
+  const R = res[j], G = res[j + 1], B = res[j + 2];
+  const mark = (a, bb) => a !== bb ? ' class="changed"' : '';
 
-  for (let i = 0; i < n; i++) {
-    const idx = i * 4, r = px[idx], g = px[idx + 1], b = px[idx + 2];
-    dO.data[idx] = r; dO.data[idx+1] = g; dO.data[idx+2] = b; dO.data[idx+3] = 255;
+  $('px-title').textContent = `Pixelwerte an Position (${x}, ${y})`;
+  $('sw-orig').style.background = `rgb(${r},${g},${b})`;
+  $('sw-res').style.background = `rgb(${R},${G},${B})`;
+  $('rgb-vals').innerHTML = `<span class="badge-r">R′: ${r}</span><br><span class="badge-g">G′: ${g}</span><br><span class="badge-b">B′: ${b}</span>`;
+  $('ycbcr-vals').innerHTML =
+    `<span class="badge-y">Y′: ${Y}</span><br><span class="badge-cb">Cb: ${Cb}</span><br><span class="badge-cr">Cr: ${Cr}</span>`;
+  $('proc-vals').innerHTML =
+    `<span class="badge-y"><span${mark(Y, Yp)}>Y′: ${Yp}</span></span><br>` +
+    `<span class="badge-cb"><span${mark(Cb, Cbp)}>Cb: ${Cbp}</span></span><br>` +
+    `<span class="badge-cr"><span${mark(Cr, Crp)}>Cr: ${Crp}</span></span>`;
+  $('res-vals').innerHTML =
+    `<span class="badge-r"><span${mark(r, R)}>R′: ${R}</span></span><br>` +
+    `<span class="badge-g"><span${mark(g, G)}>G′: ${G}</span></span><br>` +
+    `<span class="badge-b"><span${mark(b, B)}>B′: ${B}</span></span>`;
+  renderMatrices(r, g, b, Yp, Cbp, Crp, R, G, B);
+}
 
-    const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
-    const yv = clamp(Y);
-    dY.data[idx] = yv; dY.data[idx+1] = yv; dY.data[idx+2] = yv; dY.data[idx+3] = 255;
+/* ════════════════ Bilder laden ════════════════ */
 
-    const cbv = clamp(Cb);
-    dCb.data[idx]   = clamp((cbv - 128) * (-0.7) + 128);
-    dCb.data[idx+1] = clamp((cbv - 128) * (-0.7) + 128);
-    dCb.data[idx+2] = cbv; dCb.data[idx+3] = 255;
+function useCanvas(cv) {
+  W = cv.width; H = cv.height;
+  const data = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  for (let j = 3; j < data.length; j += 4) data[j] = 255;
+  orig = data;
+  state.sel = { x: Math.floor(W / 2), y: Math.floor(H / 2) };
+  setImage(off.orig, orig);
+  forward();
+  processImage();
+}
 
-    const crv = clamp(Cr);
-    dCr.data[idx]   = crv;
-    dCr.data[idx+1] = clamp((crv - 128) * (-0.5) + 128);
-    dCr.data[idx+2] = clamp((crv - 128) * (-0.5) + 128); dCr.data[idx+3] = 255;
+function makePattern(kind) {
+  const cv = document.createElement('canvas');
+  cv.width = 640; cv.height = 480;
+  const c = cv.getContext('2d');
+  const serif = 'Georgia, "Times New Roman", serif';
+  const sans = 'Helvetica, Arial, sans-serif';
 
-    const Yadj = clamp(Y + offY), Cbadj = clamp(Cb + offCb), Cradj = clamp(Cr + offCr);
-    const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
-    dR.data[idx] = rr; dR.data[idx+1] = rg; dR.data[idx+2] = rb; dR.data[idx+3] = 255;
-    dC.data[idx] = rr; dC.data[idx+1] = rg; dC.data[idx+2] = rb; dC.data[idx+3] = 255;
+  if (kind === 'bw') {
+    c.fillStyle = '#fff'; c.fillRect(0, 0, 640, 480);
+    c.fillStyle = '#000';
+    let y = 4;
+    [[serif, 40], [serif, 26], [serif, 18], [serif, 13], [serif, 10],
+     [sans, 40], [sans, 26], [sans, 18], [sans, 13], [sans, 10]].forEach(([f, s]) => {
+      y += Math.round(s * 1.28);
+      c.font = `${s}px ${f}`;
+      c.fillText('Hamburgefonstiv 0123456789', 16, y);
+    });
+    // Strichgitter
+    const blocks = [[1, 'v', '1 px vertikal'], [2, 'v', '2 px vertikal'], [4, 'v', '4 px vertikal'], [1, 'h', '1 px horizontal']];
+    const bw = 144, gap = 8, top = 352, bh = 116;
+    blocks.forEach(([p, dir, label], k) => {
+      const x0 = 16 + k * (bw + gap);
+      c.font = `11px ${sans}`;
+      c.fillText(label, x0, top - 6);
+      if (dir === 'v') {
+        for (let x = 0; x < bw; x++) if (Math.floor(x / p) % 2 === 0) c.fillRect(x0 + x, top, 1, bh);
+      } else {
+        for (let yy = 0; yy < bh; yy++) if (Math.floor(yy / p) % 2 === 0) c.fillRect(x0, top + yy, bw, 1);
+      }
+    });
   }
 
-  ctxO.putImageData(dO, 0, 0); ctxY.putImageData(dY, 0, 0);
-  ctxCb.putImageData(dCb, 0, 0); ctxCr.putImageData(dCr, 0, 0);
-  ctxR.putImageData(dR, 0, 0); ctxC.putImageData(dC, 0, 0);
-
-  if (lastPx >= 0) updatePixelInfo(lastPx, lastPy);
-  else {
-    const mid = Math.floor(n / 2), midIdx = mid * 4;
-    renderMatrix('mtx-fwd', 'mtx-inv', origData[midIdx], origData[midIdx+1], origData[midIdx+2], offY, offCb, offCr);
+  if (kind === 'color') {
+    const bands = [
+      ['#0020c0', '#ff2020', 'Rot auf Blau'],
+      ['#e00000', '#00c040', 'Grün auf Rot'],
+      ['#00a040', '#ff40ff', 'Magenta auf Grün'],
+      ['#2040d0', '#ffff00', 'Gelb auf Blau'],
+    ];
+    bands.forEach(([bg, fg, label], k) => {
+      const y0 = k * 120;
+      c.fillStyle = bg; c.fillRect(0, y0, 640, 120);
+      c.fillStyle = fg;
+      c.font = `bold 38px ${sans}`;
+      c.fillText('Hamburgefonstiv 0123', 16, y0 + 52);
+      c.font = `16px ${sans}`;
+      c.fillText(`${label} · kleine Schrift 0123456789`, 16, y0 + 84);
+      c.font = `11px ${serif}`;
+      c.fillText('Sehr kleine Schrift: Hamburgefonstiv 0123456789', 16, y0 + 106);
+    });
   }
+
+  if (kind === 'bars') {
+    const bars = ['#ffffff', '#ffff00', '#00ffff', '#00ff00', '#ff00ff', '#ff0000', '#0000ff', '#000000'];
+    bars.forEach((col, k) => { c.fillStyle = col; c.fillRect(k * 80, 0, 80, 230); });
+    const pairs = [['#ff0000', '#00ffff'], ['#0000ff', '#ffff00'], ['#00ff00', '#ff00ff']];
+    const widths = [1, 2, 4];
+    c.fillStyle = '#808080'; c.fillRect(0, 230, 640, 250);
+    pairs.forEach(([a, b], row) => {
+      const y0 = 240 + row * 80;
+      widths.forEach((p, k) => {
+        const x0 = 8 + k * 211, bw = 202;
+        for (let x = 0; x < bw; x++) {
+          c.fillStyle = Math.floor(x / p) % 2 === 0 ? a : b;
+          c.fillRect(x0 + x, y0, 1, 70);
+        }
+      });
+    });
+  }
+  return cv;
 }
 
-function updatePixelInfo(px, py) {
-  const idx = (py * W + px) * 4;
-  const r = origData[idx], g = origData[idx+1], b = origData[idx+2];
-  const [Y, Cb, Cr] = rgbToYcbcr(r, g, b);
-  const Yadj = clamp(Y + offY), Cbadj = clamp(Cb + offCb), Cradj = clamp(Cr + offCr);
-  const [rr, rg, rb] = ycbcrToRgb(Yadj, Cbadj, Cradj);
-
-  document.getElementById('sw-orig').style.background = `rgb(${r},${g},${b})`;
-  document.getElementById('sw-recon').style.background = `rgb(${rr},${rg},${rb})`;
-  document.getElementById('rgb-vals').innerHTML = `R: ${r}<br>G: ${g}<br>B: ${b}`;
-  document.getElementById('ycbcr-vals').innerHTML =
-    `<span class="badge-y">Y:  ${Math.round(Y)}</span><br>` +
-    `<span class="badge-cb">Cb: ${Math.round(Cb)}</span><br>` +
-    `<span class="badge-cr">Cr: ${Math.round(Cr)}</span>`;
-  document.getElementById('recon-vals').innerHTML = `R: ${rr}<br>G: ${rg}<br>B: ${rb}`;
-  document.getElementById('pixelPanel').style.display = 'block';
-  renderMatrix('mtx-fwd', 'mtx-inv', r, g, b, offY, offCb, offCr);
+function loadPattern(kind) {
+  setActive('seg-pattern', kind);
+  useCanvas(makePattern(kind));
 }
 
-function loadImage(file) {
+function loadFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
+      const scale = Math.min(1, 640 / img.width, 480 / img.height);
       const cv = document.createElement('canvas');
-      const scale = Math.min(1, W / img.width, H / img.height);
-      const sw = Math.round(img.width * scale), sh = Math.round(img.height * scale);
-      cv.width = W; cv.height = H;
+      cv.width = Math.max(1, Math.round(img.width * scale));
+      cv.height = Math.max(1, Math.round(img.height * scale));
       const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-      ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
-      origData = ctx.getImageData(0, 0, W, H).data;
-      lastPx = -1; lastPy = -1;
-      document.getElementById('hint').textContent = 'Schieberegler bewegen oder Pixel anklicken für Detailwerte';
-      drawChannels();
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      setActive('seg-pattern', null);
+      useCanvas(cv);
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-const dz = document.getElementById('dropzone');
-const fi = document.getElementById('fileInput');
-dz.addEventListener('click', () => fi.click());
-dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = 'var(--bg2)'; });
-dz.addEventListener('dragleave', () => dz.style.background = '');
-dz.addEventListener('drop', e => {
-  e.preventDefault(); dz.style.background = '';
-  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+/* ════════════════ Bedienung ════════════════ */
+
+function setActive(segId, v) {
+  document.querySelectorAll(`#${segId} button`).forEach(b => b.classList.toggle('active', b.dataset.v === v));
+}
+
+function initSeg(segId, initial, onChange) {
+  setActive(segId, initial);
+  document.querySelectorAll(`#${segId} button`).forEach(btn => {
+    btn.addEventListener('click', () => { setActive(segId, btn.dataset.v); onChange(btn.dataset.v); });
+  });
+}
+
+initSeg('seg-pattern', 'bw', v => loadPattern(v));
+initSeg('seg-matrix', state.matrix, v => { state.matrix = v; forward(); processImage(); });
+initSeg('seg-mode', state.mode, v => { state.mode = v; processImage(); });
+initSeg('seg-up', state.up, v => { state.up = v; processImage(); });
+initSeg('seg-zoom', String(state.zoom), v => { state.zoom = +v; drawViews(); });
+
+$('mismatch').addEventListener('change', e => { state.mismatch = e.target.checked; processImage(); });
+
+const fi = $('fileInput');
+$('uploadBtn').addEventListener('click', () => fi.click());
+fi.addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); fi.value = ''; });
+document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drop-active'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drop-active'); });
+document.addEventListener('drop', e => {
+  e.preventDefault(); document.body.classList.remove('drop-active');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFile(f);
 });
-fi.addEventListener('change', e => { if (e.target.files[0]) loadImage(e.target.files[0]); });
 
 ['y', 'cb', 'cr'].forEach(ch => {
-  document.getElementById('sl-' + ch).addEventListener('input', function () {
-    document.getElementById('val-' + ch).textContent = this.value;
-    if (ch === 'y')  offY  = +this.value;
-    if (ch === 'cb') offCb = +this.value;
-    if (ch === 'cr') offCr = +this.value;
-    drawChannels();
+  $('sl-' + ch).addEventListener('input', function () {
+    $('val-' + ch).textContent = this.value;
+    state.off[ch] = +this.value;
+    processImage();
   });
 });
 
-document.getElementById('resetBtn').addEventListener('click', () => {
-  ['y', 'cb', 'cr'].forEach(ch => {
-    document.getElementById('sl-' + ch).value = 0;
-    document.getElementById('val-' + ch).textContent = '0';
+$('resetBtn').addEventListener('click', () => {
+  ['y', 'cb', 'cr'].forEach(ch => { $('sl-' + ch).value = 0; $('val-' + ch).textContent = '0'; state.off[ch] = 0; });
+  processImage();
+});
+
+function selectAt(x, y) {
+  state.sel = { x: Math.min(W - 1, Math.max(0, x)), y: Math.min(H - 1, Math.max(0, y)) };
+  drawViews();
+}
+
+['v-orig', 'v-res'].forEach(id => {
+  $(id).addEventListener('click', function (e) {
+    const r = this.getBoundingClientRect();
+    selectAt(Math.floor((e.clientX - r.left) / r.width * W), Math.floor((e.clientY - r.top) / r.height * H));
   });
-  offY = 0; offCb = 0; offCr = 0; lastPx = -1; lastPy = -1;
-  drawChannels();
 });
 
-document.getElementById('c-click').addEventListener('click', function (e) {
-  if (!origData) return;
-  const rect = this.getBoundingClientRect();
-  lastPx = Math.min(W - 1, Math.max(0, Math.floor((e.clientX - rect.left) / rect.width * W)));
-  lastPy = Math.min(H - 1, Math.max(0, Math.floor((e.clientY - rect.top) / rect.height * H)));
-  updatePixelInfo(lastPx, lastPy);
+['l-orig', 'l-res', 'l-diff'].forEach(id => {
+  $(id).addEventListener('click', function (e) {
+    const r = this.getBoundingClientRect(), lr = loupeRect();
+    const px = (e.clientX - r.left) / r.width * LW, py = (e.clientY - r.top) / r.height * LH;
+    selectAt(lr.sx + Math.floor(px / lr.z), lr.sy + Math.floor(py / lr.z));
+  });
 });
 
-renderMatrix('mtx-fwd', 'mtx-inv', 128, 64, 200, 0, 0, 0);
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || !orig) return;
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d) return;
+  e.preventDefault();
+  selectAt(state.sel.x + d[0], state.sel.y + d[1]);
+});
+
+loadPattern('bw');
 </script>
 </body>
 </html>
