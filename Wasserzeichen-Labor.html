@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Wasserzeichen-Labor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: Messlabor-Arbeitsblatt – drei Stufen (Einbettung → Kanal → Detektor) als Bänder, Bildtafeln im Raster */
+:root{
+  --bg:#EBEEF2; --surface:#FFFFFF; --sunk:#F4F6F9; --ink:#131A23; --muted:#55606F; --line:#D0D7E0;
+  --accent:#2347C8; --one:#C46A0E; --zero:#0B7F86; --sync:#7A49C2; --len:#5F6B7A; --crc:#B42F68;
+  --bad:#C62828; --ok:#1C7A44; --warn:#A86A00;
+  --f-display:'Archivo','Arial Narrow',Arial,sans-serif;
+  --f-body:'Source Sans 3','Segoe UI',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1217; --surface:#161B22; --sunk:#11161C; --ink:#E5EAF1; --muted:#97A2B1; --line:#2A323D;
+  --accent:#7A9BFF; --one:#F09A42; --zero:#38B8BE; --sync:#A985F0; --len:#8F9BAB; --crc:#E5679C;
+  --bad:#FF6B6B; --ok:#4CC27E; --warn:#E3A93A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1217; --surface:#161B22; --sunk:#11161C; --ink:#E5EAF1; --muted:#97A2B1; --line:#2A323D;
+  --accent:#7A9BFF; --one:#F09A42; --zero:#38B8BE; --sync:#A985F0; --len:#8F9BAB; --crc:#E5679C;
+  --bad:#FF6B6B; --ok:#4CC27E; --warn:#E3A93A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3,h4{font-family:var(--f-display);margin:0;text-wrap:balance}
+h1{font-size:clamp(2rem,4.2vw,3.1rem);font-weight:800;font-stretch:80%;letter-spacing:-.01em;line-height:1.02}
+h2{font-size:1.45rem;font-weight:700;font-stretch:85%}
+h4{font-size:.95rem;font-weight:650;font-stretch:90%}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{max-width:68ch;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:10px}
+.formula{font-family:var(--f-mono);font-size:.86rem;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:4px;overflow-x:auto}
+.formula span.k{color:var(--muted);display:inline-block;min-width:8.5em}
+.formula i{font-family:var(--f-body);font-size:1rem}
+
+/* Bedienleiste */
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.ctl{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.ctl h3{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.88rem}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.val{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-variant-numeric:tabular-nums}
+input[type=text]{font:inherit;font-family:var(--f-mono);font-size:.9rem;padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:var(--sunk);color:var(--ink);width:100%;min-width:0}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+label.cb{display:flex;align-items:center;gap:8px;font-size:.88rem;cursor:pointer}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button,.filebtn{font:inherit;font-size:.86rem;font-weight:600;padding:7px 12px;border-radius:4px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+button:focus-visible,.filebtn:focus-within,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.hint{font-size:.8rem;color:var(--muted)}
+.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+
+/* Stufen */
+section.stage{display:flex;flex-direction:column;gap:14px;padding-top:18px;border-top:2px solid var(--ink)}
+.stagehead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.stagehead .no{font-family:var(--f-display);font-weight:800;font-stretch:75%;font-size:2.2rem;line-height:1;color:var(--accent)}
+.stagehead p{color:var(--muted);max-width:70ch;flex:1 1 320px}
+
+.panel{margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.ph{display:flex;align-items:baseline;gap:8px}
+.ph .tag{margin-left:auto;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.op{font-family:var(--f-mono);font-weight:600;color:var(--accent);min-width:1em}
+canvas.img{width:100%;height:auto;aspect-ratio:16/9;max-width:100%;display:block;border-radius:3px;background:var(--sunk);border:1px solid var(--line)}
+canvas.px{image-rendering:pixelated}
+figcaption{font-size:.82rem;color:var(--muted);line-height:1.4}
+
+.trio{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center}
+.bigop{font-family:var(--f-display);font-weight:800;font-size:2rem;color:var(--muted);padding-bottom:28px}
+.quad{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+@media (max-width:760px){.trio{grid-template-columns:minmax(0,1fr)}.bigop{display:none}}
+
+/* Bitrahmen */
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.bits{display:flex;flex-wrap:wrap;gap:10px 14px;font-family:var(--f-mono);font-size:.78rem}
+.fld{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fld .nm{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase}
+.fld .b{word-break:break-all;line-height:1.35}
+.fld.sync .nm{color:var(--sync)} .fld.len .nm{color:var(--len)} .fld.txt .nm{color:var(--accent)} .fld.crc .nm{color:var(--crc)}
+.b .o{color:var(--one)} .b .z{color:var(--zero)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* Detektor */
+.steps{margin:0;padding-left:1.3em;display:grid;gap:4px;font-size:.9rem;max-width:90ch}
+.steps b{font-family:var(--f-display);font-stretch:90%}
+.result{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.result{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+#chart{width:100%;height:210px;display:block}
+.verdict{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:1.25rem;font-stretch:90%}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none}
+.verdict.ok .dot{background:var(--ok)} .verdict.warn .dot{background:var(--warn)} .verdict.bad .dot{background:var(--bad)}
+.decoded{font-family:var(--f-mono);font-size:1.3rem;padding:10px 12px;background:var(--sunk);border:1px solid var(--line);border-radius:4px;min-height:2.6em;word-break:break-all}
+.decoded.faint{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--bad)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 8px;border-radius:999px;border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.chip.ok{border-color:var(--ok);color:var(--ok)} .chip.bad{border-color:var(--bad);color:var(--bad)}
+.note{font-size:.84rem;color:var(--muted);max-width:75ch}
+footer{font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;max-width:85ch}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Spread-Spectrum-Wasserzeichen · Luminanzkanal · 384 × 216 px</div>
+  <h1>Wasserzeichen-Labor</h1>
+  <p class="lede">Ein Text wird als Bitfolge mit einem geheimen Pseudo-Zufallsrauschen gespreizt und so schwach auf die Helligkeit jedes Bildes addiert, dass man ihn nicht sieht. Der Detektor kennt den Schlüssel, entfernt das Bild, entspreizt das Rauschen und liest die Bits aus der Korrelation zurück.</p>
+  <div class="formula" aria-label="Formeln">
+    <div><span class="k">Einbettung</span><i>Y′</i>(x,y) = <i>Y</i>(x,y) + α · <i>m</i>(x,y) · <i>p</i>(x,y) · <i>b</i><sub><i>k</i>(x,y)</sub> &nbsp;&nbsp; mit <i>p</i>, <i>b</i> ∈ {−1, +1}</div>
+    <div><span class="k">Detektor</span><i>r</i> = <i>Y′</i> − <i>h</i> ∗ <i>Y′</i> &nbsp;→&nbsp; <i>c<sub>k</sub></i> = Σ<sub>(x,y)∈k</sub> <i>r</i> · <i>p</i> &nbsp;→&nbsp; <i>b̂<sub>k</sub></i> = sign(<i>c<sub>k</sub></i>)</div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="ctl">
+    <h3>Nutzlast</h3>
+    <label class="f">Einzubettender Text <span class="row"><span class="hint">max. 24 Byte UTF-8</span><span class="val" id="byteCount">0/24 Byte</span></span>
+      <input type="text" id="wmText" value="HFF München · Jg. 2026" maxlength="48" spellcheck="false"></label>
+    <label class="f">Geheimer Schlüssel (Seed des Rauschens)
+      <input type="text" id="wmKey" value="geheim-42" spellcheck="false"></label>
+  </div>
+  <div class="ctl">
+    <h3>Einbettung</h3>
+    <label class="f"><span class="row">Stärke α <span class="val" id="alphaV"></span></span>
+      <input type="range" id="alpha" min="0.5" max="8" step="0.5" value="2"></label>
+    <label class="cb"><input type="checkbox" id="mask" checked> Wahrnehmungsmaske (stärker in Texturen)</label>
+    <label class="f"><span class="row">Darstellungs-Verstärkung <span class="val" id="gainV"></span></span>
+      <input type="range" id="gain" min="0" max="6" step="1" value="4"></label>
+  </div>
+  <div class="ctl">
+    <h3>Quelle</h3>
+    <div class="btns">
+      <button class="primary" id="play">Pause</button>
+      <button id="step">Einzelbild</button>
+    </div>
+    <div class="btns">
+      <button id="srcDemo" aria-pressed="true">Demo-Szene</button>
+      <label class="filebtn" tabindex="-1">Eigenes Video …<input type="file" id="file" accept="video/*"></label>
+    </div>
+    <span class="hint" id="srcHint">Synthetische Szene mit glatten Flächen und Texturen.</span>
+  </div>
+</div>
+
+<!-- 1 Einbettung -->
+<section class="stage">
+  <div class="stagehead"><span class="no">1</span><h2>Einbettung</h2>
+    <p>Links das Original, rechts das markierte Bild. In der Mitte die tatsächliche Differenz nach 8-Bit-Rundung, verstärkt dargestellt. Bei α = 2 ändert sich ein Pixel um wenige Codewerte.</p></div>
+  <div class="trio">
+    <figure class="panel"><div class="ph"><h4>Original</h4></div><canvas class="img" id="cvOrig"></canvas><figcaption>Eingangsbild der Quelle</figcaption></figure>
+    <div class="bigop" aria-hidden="true">+</div>
+    <figure class="panel"><div class="ph"><h4>Wasserzeichen</h4><span class="tag gainTag"></span></div><canvas class="img px" id="cvDiff"></canvas><figcaption>Y′ − Y, grau = 0</figcaption></figure>
+    <div class="bigop" aria-hidden="true">=</div>
+    <figure class="panel"><div class="ph"><h4>Markiert</h4></div><canvas class="img" id="cvMarked"></canvas><figcaption>Sieht aus wie das Original</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:1.05rem;font-family:var(--f-display);font-stretch:90%">Woraus das Wasserzeichen besteht</h3>
+  <div class="quad">
+    <figure class="panel"><div class="ph"><span class="op">p</span><h4>Pseudo-Zufallsrauschen</h4><span class="tag">±1</span></div><canvas class="img px" id="cvPN"></canvas><figcaption>Aus dem Schlüssel erzeugt. Ohne Schlüssel nicht von echtem Rauschen zu unterscheiden.</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">b</span><h4>Nutzlast</h4><span class="tag">8 × 8 px je Bit</span></div><canvas class="img px" id="cvPay"></canvas><figcaption>224 Bit in Zellen, zeilenweise wiederholt (≈ 5,8-fach). <span style="color:var(--one)">■</span> 1 · <span style="color:var(--zero)">■</span> 0</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">p·b</span><h4>Gespreizte Nutzlast</h4><span class="tag">±1</span></div><canvas class="img px" id="cvSpread"></canvas><figcaption>Bei Bit 0 wird das Rauschen invertiert. Die Bits sind darin nicht mehr zu sehen.</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">m</span><h4>Maske</h4><span class="tag" id="maskTag"></span></div><canvas class="img px" id="cvMask"></canvas><figcaption>Lokale Bildaktivität. In ruhigen Flächen (Himmel) wird schwächer eingebettet, in Texturen stärker.</figcaption></figure>
+  </div>
+
+  <div class="frame">
+    <div class="row"><h4>Bitrahmen der Nutzlast</h4><span class="hint" id="trimNote"></span></div>
+    <div class="bits" id="bitStrip"></div>
+  </div>
+</section>
+
+<!-- 2 Kanal -->
+<section class="stage">
+  <div class="stagehead"><span class="no">2</span><h2>Übertragungskanal</h2>
+    <p>Zwischen Einbettung und Detektor wird das Video bearbeitet. Helligkeit und Kontrast stören kaum, Rauschen und Weichzeichnen kosten Signal, schon eine Verschiebung um ein Pixel zerstört die Synchronisation.</p></div>
+  <div class="controls">
+    <div class="ctl">
+      <label class="f"><span class="row">Additives Rauschen σ <span class="val" id="noiseV"></span></span><input type="range" id="noise" min="0" max="20" step="1" value="0"></label>
+      <label class="cb"><input type="checkbox" id="blur"> Weichzeichnen (3 × 3 Box)</label>
+    </div>
+    <div class="ctl">
+      <label class="f"><span class="row">Helligkeit <span class="val" id="brightV"></span></span><input type="range" id="bright" min="-50" max="50" step="5" value="0"></label>
+      <label class="f"><span class="row">Kontrast <span class="val" id="contrastV"></span></span><input type="range" id="contrast" min="0.5" max="1.5" step="0.05" value="1"></label>
+    </div>
+    <div class="ctl">
+      <label class="f"><span class="row">Horizontale Verschiebung <span class="val" id="shiftV"></span></span><input type="range" id="shift" min="0" max="4" step="1" value="0"></label>
+      <button id="resetCh">Kanal zurücksetzen</button>
+    </div>
+  </div>
+</section>
+
+<!-- 3 Detektor -->
+<section class="stage">
+  <div class="stagehead"><span class="no">3</span><h2>Detektor</h2>
+    <p>Der Detektor braucht das Original nicht. Er kennt nur den Schlüssel und das Rahmenformat.</p></div>
+  <ol class="steps">
+    <li><b>Hochpass:</b> Das Bild selbst ist für den Detektor Störung. Ein 3 × 3-Mittelwert wird abgezogen, übrig bleiben Kanten, Rauschen und das Wasserzeichen.</li>
+    <li><b>Entspreizen:</b> Das Residual wird pixelweise mit demselben Rauschen <i>p</i> multipliziert. Weil <i>p</i>·<i>p</i> = 1, wird aus dem Wasserzeichen wieder ±α·<i>b</i>, alles andere bleibt zufällig.</li>
+    <li><b>Integrieren:</b> Pro Zelle, über alle Wiederholungen eines Bits und über die Einzelbilder summieren. Das Signal wächst mit <i>n</i>, das Rauschen nur mit √<i>n</i>.</li>
+    <li><b>Entscheiden:</b> Das Vorzeichen der Summe ist das Bit. Der z-Wert gibt an, wie sicher die Entscheidung ist.</li>
+    <li><b>Prüfen:</b> Sync-Wort und CRC-8 zeigen, ob überhaupt ein Wasserzeichen vorliegt und ob die Nutzlast fehlerfrei ist.</li>
+  </ol>
+  <div class="quad">
+    <figure class="panel"><div class="ph"><span class="op">Y′</span><h4>Empfangen</h4></div><canvas class="img" id="cvRcv"></canvas><figcaption>Nach dem Übertragungskanal</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">r</span><h4>Hochpass-Residual</h4><span class="tag gainTag"></span></div><canvas class="img px" id="cvRes"></canvas><figcaption>Bildinhalt weitgehend entfernt, Kanten bleiben als Störung</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">r·p</span><h4>Entspreizt</h4><span class="tag gainTag"></span></div><canvas class="img px" id="cvDemod"></canvas><figcaption>Bei hoher Verstärkung wird das Zellmuster der Nutzlast als Grundtendenz sichtbar</figcaption></figure>
+    <figure class="panel"><div class="ph"><span class="op">Σ</span><h4>Zellsummen</h4><span class="tag" id="framesTag"></span></div><canvas class="img px" id="cvCells"></canvas><figcaption>Vorzeichen je Zelle, Sättigung = Sicherheit. Vergleiche mit der Nutzlast oben.</figcaption></figure>
+  </div>
+
+  <div class="result">
+    <div class="card">
+      <div class="row"><h4>Korrelation je Bit (z-Wert, alle Wiederholungen und Einzelbilder)</h4></div>
+      <canvas id="chart" role="img" aria-label="Balkendiagramm der z-Werte je Bit"></canvas>
+      <div class="legend">
+        <span><span class="sw" style="background:var(--one)"></span>Entscheidung 1</span>
+        <span><span class="sw" style="background:var(--zero)"></span>Entscheidung 0</span>
+        <span><span class="sw" style="background:var(--bad)"></span>Bitfehler gegenüber Sender</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="verdict" id="verdict"><span class="dot"></span><span id="verdictTxt">–</span></div>
+      <div class="decoded" id="decoded">–</div>
+      <div class="chips" id="chips"></div>
+      <label class="cb"><input type="checkbox" id="accum" checked> Über Einzelbilder akkumulieren</label>
+      <label class="cb"><input type="checkbox" id="rightKey" checked> Detektor verwendet den richtigen Schlüssel</label>
+      <div class="btns"><button id="resetAcc">Akkumulation zurücksetzen</button></div>
+      <p class="note">Mit falschem Schlüssel bleibt die Korrelation um null: Das Detektionsmaß verhält sich wie Standard-Normalverteilung, ein Wert über 5 tritt dann praktisch nie zufällig auf.</p>
+    </div>
+  </div>
+</section>
+
+<footer>Vereinfachtes Lehrmodell. Echte Systeme für Kino und Broadcast arbeiten zusätzlich mit Synchronisationsmustern gegen Geometrie-Angriffe, mit Fehlerkorrektur statt reiner Wiederholung, mit schlüsselabhängiger Verteilung der Bits und mit Einbettung im Frequenzbereich oder über die Zeitachse. Ein eigenes Video wird nur lokal im Browser verarbeitet.</footer>
+</div>
+
+<script>
+(()=>{
+const W=384,H=216,N=W*H,CELL=8,CW=W/CELL,CH=H/CELL,NC=CW*CH,MAXB=24,NB=16+8+MAXB*8+8,SYNC=0xB38E;
+const $=id=>document.getElementById(id);
+const enc=new TextEncoder(),dec=new TextDecoder('utf-8',{fatal:false});
+
+function fnv(s){let h=2166136261>>>0;for(const c of enc.encode(s)){h^=c;h=Math.imul(h,16777619)>>>0;}return h;}
+function mulberry32(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function makePN(key){const r=mulberry32(fnv(key));const p=new Int8Array(N);for(let i=0;i<N;i++)p[i]=r()<.5?-1:1;return p;}
+function crc8(a){let c=0;for(const b of a){c^=b;for(let k=0;k<8;k++)c=(c&0x80)?((c<<1)^0x07)&0xFF:(c<<1)&0xFF;}return c;}
+function fitText(t){let a=[...t];while(enc.encode(a.join('')).length>MAXB)a.pop();return a.join('');}
+function buildBits(text){
+  const s=fitText(text),by=enc.encode(s),pl=new Uint8Array(1+MAXB);pl[0]=by.length;pl.set(by,1);
+  const c=crc8(pl),bits=new Uint8Array(NB);let k=0;
+  for(let i=15;i>=0;i--)bits[k++]=(SYNC>>i)&1;
+  for(const b of pl)for(let i=7;i>=0;i--)bits[k++]=(b>>i)&1;
+  for(let i=7;i>=0;i--)bits[k++]=(c>>i)&1;
+  return{bits,text:s,bytes:by.length};
+}
+const field=i=>i<16?'sync':i<24?'len':i<216?'txt':'crc';
+
+// Bit-Zuordnung: Zelle c trägt Bit c mod NB
+const pixBit=new Uint16Array(N),pixCell=new Uint16Array(N);
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){const c=(y>>3)*CW+(x>>3);pixCell[y*W+x]=c;pixBit[y*W+x]=c%NB;}
+
+// Puffer
+const F=()=>new Float32Array(N);
+const Y=F(),Ym=F(),Diff=F(),M=F(),T1=F(),T2=F(),TMP=F(),Spread=F(),Cr=F(),Cg=F(),Cb=F(),Yr=F(),Res=F(),Dm=F();
+const marked=new Uint8ClampedArray(N*4),rcv=new Uint8ClampedArray(N*4);
+const cellAcc=new Float64Array(NC),cellSq=new Float64Array(NC),fCell=new Float64Array(NC),fSq=new Float64Array(NC);
+const acc=new Float64Array(NB),accSq=new Float64Array(NB),z=new Float64Array(NB);
+
+function box3(src,dst){
+  for(let y=0;y<H;y++){const r=y*W;for(let x=0;x<W;x++){const l=x?x-1:x,rr=x<W-1?x+1:x;TMP[r+x]=(src[r+l]+src[r+x]+src[r+rr])/3;}}
+  for(let y=0;y<H;y++){const u=(y?y-1:y)*W,c=y*W,d=(y<H-1?y+1:y)*W;for(let x=0;x<W;x++)dst[c+x]=(TMP[u+x]+TMP[c+x]+TMP[d+x])/3;}
+}
+let spare=null;function gauss(){if(spare!==null){const s=spare;spare=null;return s;}let u=0,v=0;while(u===0)u=Math.random();v=Math.random();const m=Math.sqrt(-2*Math.log(u));spare=m*Math.sin(2*Math.PI*v);return m*Math.cos(2*Math.PI*v);}
+
+// Zustand
+const st={text:'',key:'',alpha:2,mask:true,gain:16,noise:0,blur:false,bright:0,contrast:1,shift:0,accumulate:true,rightKey:true,playing:true,t:0,source:'demo',frames:0,bits:null,truth:null};
+let pn,pnWrong;
+
+// Demo-Szene
+const TEX=new Float32Array(256*256);
+(()=>{const rng=mulberry32(7);const octs=[[4,.5],[8,.25],[16,.13],[32,.07],[64,.05]];
+  for(const[n,a]of octs){const g=new Float32Array(n*n);for(let i=0;i<g.length;i++)g[i]=rng();const step=256/n;
+    for(let y=0;y<256;y++){const gy=y/step,y0=Math.floor(gy),fy=gy-y0,sy=fy*fy*(3-2*fy);
+      for(let x=0;x<256;x++){const gx=x/step,x0=Math.floor(gx),fx=gx-x0,sx=fx*fx*(3-2*fx);
+        const a00=g[(y0%n)*n+x0%n],a10=g[(y0%n)*n+(x0+1)%n],a01=g[((y0+1)%n)*n+x0%n],a11=g[((y0+1)%n)*n+(x0+1)%n];
+        TEX[y*256+x]+=a*((a00*(1-sx)+a10*sx)*(1-sy)+(a01*(1-sx)+a11*sx)*sy);}}}
+  let mn=1e9,mx=-1e9;for(const v of TEX){mn=Math.min(mn,v);mx=Math.max(mx,v);}for(let i=0;i<TEX.length;i++)TEX[i]=(TEX[i]-mn)/(mx-mn);})();
+const srcCan=document.createElement('canvas');srcCan.width=W;srcCan.height=H;
+const srcCtx=srcCan.getContext('2d',{willReadFrequently:true});
+let srcData=srcCtx.createImageData(W,H);
+function renderScene(t){
+  const d=srcData.data,sunX=(40+t*0.7)%(W+60)-30,sunY=44,bx=W*.5+130*Math.sin(t*.025),by=168-58*Math.abs(Math.sin(t*.06)),off=t*1.2;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const hz=118+10*Math.sin(x*.025+t*.012)+5*Math.sin(x*.07);let r,g,b;
+    if(y<hz){const k=y/hz;r=70+80*k;g=120+70*k;b=200+35*k;
+      const dx=x-sunX,dy=y-sunY,dd=dx*dx+dy*dy;
+      if(dd<400){r=255;g=222;b=130;}else if(dd<1600){const f=(1-(Math.sqrt(dd)-20)/20)*.35;r+=(255-r)*f;g+=(222-g)*f;b+=(130-b)*f*.6;}
+      const c=TEX[((x+off*.3)|0&255)%256+((y*3)&255)*256];if(c>.58){const f=Math.min(1,(c-.58)*2.4);r+=(242-r)*f;g+=(245-g)*f;b+=(250-b)*f;}
+    }else{const tx=TEX[(((x+off)|0)&255)+((((y-hz)*2)|0)&255)*256],dp=(y-hz)/(H-hz);r=55+95*tx+30*dp;g=85+85*tx+10*dp;b=35+40*tx;}
+    const dx=x-bx,dy=y-by;if(dx*dx+dy*dy<324){const s=Math.floor((dx+dy+t*2)/6)&1;r=s?228:205;g=s?72:205;b=s?58:212;}
+    const j=(y*W+x)*4;d[j]=r;d[j+1]=g;d[j+2]=b;d[j+3]=255;}
+}
+const video=document.createElement('video');video.muted=true;video.loop=true;video.playsInline=true;
+function acquire(){
+  if(st.source==='video'&&video.readyState>=2&&video.videoWidth){
+    const vw=video.videoWidth,vh=video.videoHeight,ar=W/H;let sw=vw,sh=vw/ar;if(sh>vh){sh=vh;sw=vh*ar;}
+    srcCtx.drawImage(video,(vw-sw)/2,(vh-sh)/2,sw,sh,0,0,W,H);srcData=srcCtx.getImageData(0,0,W,H);
+  }else renderScene(st.t);
+}
+
+// Verarbeitung
+function embed(){
+  const s=srcData.data;
+  for(let i=0,j=0;i<N;i++,j+=4)Y[i]=.299*s[j]+.587*s[j+1]+.114*s[j+2];
+  if(st.mask){box3(Y,T1);for(let i=0;i<N;i++)T2[i]=Math.abs(Y[i]-T1[i]);box3(T2,T1);box3(T1,T2);
+    for(let i=0;i<N;i++)M[i]=Math.min(2.5,Math.max(.3,.3+T2[i]*.45));}else M.fill(1);
+  const bits=st.bits;
+  for(let i=0,j=0;i<N;i++,j+=4){const b=bits[pixBit[i]]?1:-1;Spread[i]=pn[i]*b;const w=st.alpha*M[i]*Spread[i];
+    marked[j]=s[j]+w;marked[j+1]=s[j+1]+w;marked[j+2]=s[j+2]+w;marked[j+3]=255;
+    Ym[i]=.299*marked[j]+.587*marked[j+1]+.114*marked[j+2];Diff[i]=Ym[i]-Y[i];}
+}
+function channel(){
+  const sh=st.shift,ct=st.contrast,br=st.bright;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,j=(y*W+Math.max(0,x-sh))*4;
+    Cr[i]=(marked[j]-128)*ct+128+br;Cg[i]=(marked[j+1]-128)*ct+128+br;Cb[i]=(marked[j+2]-128)*ct+128+br;}
+  if(st.blur){box3(Cr,Cr);box3(Cg,Cg);box3(Cb,Cb);}
+  const sg=st.noise;
+  for(let i=0,j=0;i<N;i++,j+=4){
+    rcv[j]=Cr[i]+(sg?gauss()*sg:0);rcv[j+1]=Cg[i]+(sg?gauss()*sg:0);rcv[j+2]=Cb[i]+(sg?gauss()*sg:0);rcv[j+3]=255;
+    Yr[i]=.299*rcv[j]+.587*rcv[j+1]+.114*rcv[j+2];}
+}
+function resetAcc(){cellAcc.fill(0);cellSq.fill(0);acc.fill(0);accSq.fill(0);st.frames=0;}
+function detect(){
+  box3(Yr,T1);for(let i=0;i<N;i++)Res[i]=Yr[i]-T1[i];
+  const p=st.rightKey?pn:pnWrong;fCell.fill(0);fSq.fill(0);
+  for(let i=0;i<N;i++){const d=Res[i]*p[i];Dm[i]=d;const c=pixCell[i];fCell[c]+=d;fSq[c]+=d*d;}
+  if(!st.accumulate)resetAcc();
+  for(let c=0;c<NC;c++){cellAcc[c]+=fCell[c];cellSq[c]+=fSq[c];const b=c%NB;acc[b]+=fCell[c];accSq[b]+=fSq[c];}
+  st.frames++;
+  for(let b=0;b<NB;b++)z[b]=accSq[b]>0?acc[b]/Math.sqrt(accSq[b]):0;
+}
+
+// Darstellung
+let COL={};
+function hex(v){v=v.trim().replace('#','');if(v.length===3)v=v.split('').map(c=>c+c).join('');const n=parseInt(v,16);return[n>>16&255,n>>8&255,n&255];}
+function readTokens(){const cs=getComputedStyle(document.documentElement);for(const k of['ink','muted','line','one','zero','sync','len','accent','crc','bad','surface'])COL[k]=cs.getPropertyValue('--'+k).trim();
+  COL.oneRGB=hex(COL.one);COL.zeroRGB=hex(COL.zero);}
+const cvs={};
+function cv(id){if(!cvs[id]){const c=$(id);c.width=W;c.height=H;const ctx=c.getContext('2d');cvs[id]={ctx,img:ctx.createImageData(W,H)};}return cvs[id];}
+function drawRGBA(id,data){const o=cv(id);o.img.data.set(data);o.ctx.putImageData(o.img,0,0);}
+function drawSigned(id,arr,gain){const o=cv(id),d=o.img.data;for(let i=0,j=0;i<N;i++,j+=4){const v=128+arr[i]*gain;d[j]=v;d[j+1]=v;d[j+2]=v;d[j+3]=255;}o.ctx.putImageData(o.img,0,0);}
+function drawPN(){drawSigned('cvPN',pn,127);}
+function drawPayload(){const o=cv('cvPay'),d=o.img.data,a=COL.oneRGB,b=COL.zeroRGB;
+  for(let i=0,j=0;i<N;i++,j+=4){const c=st.bits[pixBit[i]]?a:b;d[j]=c[0];d[j+1]=c[1];d[j+2]=c[2];d[j+3]=255;}o.ctx.putImageData(o.img,0,0);}
+function drawMask(){const o=cv('cvMask'),d=o.img.data;for(let i=0,j=0;i<N;i++,j+=4){const v=(M[i]-.3)/2.2*255;d[j]=d[j+1]=d[j+2]=v;d[j+3]=255;}o.ctx.putImageData(o.img,0,0);
+  $('maskTag').textContent=st.mask?'0,3 … 2,5':'aus (=1)';}
+function drawCells(){const o=cv('cvCells'),d=o.img.data,a=COL.oneRGB,b=COL.zeroRGB;
+  for(let i=0,j=0;i<N;i++,j+=4){const c=pixCell[i],q=cellSq[c]>0?cellAcc[c]/Math.sqrt(cellSq[c]):0,f=Math.min(1,Math.abs(q)/3),col=q>0?a:b;
+    d[j]=128+(col[0]-128)*f;d[j+1]=128+(col[1]-128)*f;d[j+2]=128+(col[2]-128)*f;d[j+3]=255;}o.ctx.putImageData(o.img,0,0);}
+
+function drawChart(){
+  const c=$('chart'),w=c.clientWidth,h=210,dpr=window.devicePixelRatio||1;if(!w)return;
+  if(c.width!==Math.round(w*dpr)){c.width=Math.round(w*dpr);c.height=h*dpr;}
+  const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,w,h);
+  const pl=34,pr=6,pt=20,pb=16,pw=w-pl-pr,ph=h-pt-pb,bw=pw/NB,y0=pt+ph/2;
+  let zm=0;for(const v of z)zm=Math.max(zm,Math.abs(v));zm=Math.max(6,zm*1.08);const sc=(ph/2)/zm;
+  const fields=[['sync',0,16,'Sync'],['len',16,24,'Länge'],['accent',24,216,'Text (24 Byte)'],['crc',216,224,'CRC']];
+  g.font='600 10px '+getComputedStyle(document.body).getPropertyValue('--f-mono');g.textBaseline='alphabetic';
+  for(const[k,a,b,l]of fields){g.globalAlpha=.09;g.fillStyle=COL[k];g.fillRect(pl+a*bw,pt,(b-a)*bw,ph);g.globalAlpha=1;g.fillStyle=COL[k];
+    const tw=g.measureText(l).width;if(tw<(b-a)*bw-2)g.fillText(l,pl+a*bw+2,pt-6);}
+  const step=zm>60?20:zm>30?10:zm>14?5:2;
+  g.strokeStyle=COL.line;g.lineWidth=1;g.fillStyle=COL.muted;g.textAlign='right';g.textBaseline='middle';
+  for(let v=-Math.floor(zm/step)*step;v<=zm;v+=step){const y=y0-v*sc;g.beginPath();g.moveTo(pl,y+.5);g.lineTo(pl+pw,y+.5);g.stroke();g.fillText(v,pl-5,y);}
+  g.strokeStyle=COL.muted;g.beginPath();g.moveTo(pl,y0+.5);g.lineTo(pl+pw,y0+.5);g.stroke();
+  for(let i=0;i<NB;i++){const v=z[i],x=pl+i*bw;g.fillStyle=v>0?COL.one:COL.zero;const hh=v*sc;g.fillRect(x+bw*.1,hh>0?y0-hh:y0,Math.max(.8,bw*.8),Math.abs(hh));
+    if((v>0?1:0)!==st.bits[i]&&st.rightKey){g.fillStyle=COL.bad;g.fillRect(x,pt+ph+3,Math.max(1.5,bw),5);}}
+  g.textAlign='left';g.textBaseline='alphabetic';
+}
+
+function readout(){
+  const d=new Uint8Array(NB);for(let i=0;i<NB;i++)d[i]=z[i]>0?1:0;
+  let sm=0,zs=0;for(let i=0;i<16;i++){const sb=(SYNC>>(15-i))&1;if(d[i]===sb)sm++;zs+=z[i]*(sb?1:-1);}zs/=4;
+  const byte=k=>{let v=0;for(let i=0;i<8;i++)v=(v<<1)|d[k+i];return v;};
+  const pl=new Uint8Array(1+MAXB);for(let k=0;k<1+MAXB;k++)pl[k]=byte(16+k*8);
+  const crcOk=crc8(pl)===byte(216),len=Math.min(pl[0],MAXB),txt=dec.decode(pl.slice(1,1+len));
+  let errs=0;for(let i=0;i<NB;i++)if(d[i]!==st.bits[i])errs++;
+  let minAbs=1e9;for(const v of z)minAbs=Math.min(minAbs,Math.abs(v));
+  const v=$('verdict'),vt=$('verdictTxt'),de=$('decoded');
+  v.className='verdict '+(zs>5?'ok':zs>3?'warn':'bad');
+  vt.textContent=zs>5?(crcOk?'Wasserzeichen erkannt, Nutzlast fehlerfrei':'Wasserzeichen erkannt, Nutzlast fehlerhaft'):zs>3?'Unsicher, mehr Einzelbilder nötig':'Kein Wasserzeichen gefunden';
+  de.textContent=zs>3?(txt||'(leer)'):'–';de.className='decoded'+(zs>3&&!crcOk?' faint':'');
+  $('chips').innerHTML=
+    `<span class="chip">Detektionsmaß z = ${zs.toFixed(1)}</span>`+
+    `<span class="chip ${sm===16?'ok':'bad'}">Sync ${sm}/16</span>`+
+    `<span class="chip ${crcOk?'ok':'bad'}">CRC-8 ${crcOk?'ok':'falsch'}</span>`+
+    `<span class="chip ${errs?'bad':'ok'}">Bitfehler ${errs}/${NB}</span>`+
+    `<span class="chip">schwächstes Bit |z| = ${minAbs.toFixed(1)}</span>`+
+    `<span class="chip">${st.frames} Einzelbild${st.frames===1?'':'er'}</span>`;
+  $('framesTag').textContent=st.frames+' Bild'+(st.frames===1?'':'er');
+}
+
+let staticDirty=true;
+function render(){
+  drawRGBA('cvOrig',srcData.data);drawSigned('cvDiff',Diff,st.gain);drawRGBA('cvMarked',marked);
+  if(staticDirty){drawPN();drawPayload();drawSigned('cvSpread',Spread,127);staticDirty=false;}
+  drawMask();drawRGBA('cvRcv',rcv);drawSigned('cvRes',Res,st.gain);drawSigned('cvDemod',Dm,st.gain);drawCells();drawChart();readout();
+}
+function processFrame(){embed();channel();detect();render();}
+
+// Bitleiste
+function renderBitStrip(){
+  const b=st.bits,groups=[['sync','Sync 0xB38E',0,16],['len','Länge',16,24],['txt','Text',24,216],['crc','CRC-8',216,224]];
+  $('bitStrip').innerHTML=groups.map(([c,l,a,e])=>{let s='';for(let i=a;i<e;i++){s+=b[i]?'<span class="o">1</span>':'<span class="z">0</span>';if((i-a)%8===7&&i<e-1)s+=' ';}
+    return `<div class="fld ${c}"${c==='txt'?' style="flex:1 1 100%"':''}><span class="nm">${l}${c==='len'?' = '+st.truth.bytes:''}</span><span class="b">${s}</span></div>`;}).join('');
+  $('byteCount').textContent=st.truth.bytes+'/24 Byte';
+  $('trimNote').textContent=st.truth.text!==st.text?'Gekürzt auf: „'+st.truth.text+'“':'224 Bit = 16 Sync + 8 Länge + 192 Text + 8 CRC';
+}
+
+// Bedienung
+function paramChange(){resetAcc();processFrame();}
+function setText(){st.text=$('wmText').value;st.truth=buildBits(st.text);st.bits=st.truth.bits;staticDirty=true;renderBitStrip();}
+function setKey(){st.key=$('wmKey').value;pn=makePN(st.key);pnWrong=makePN(st.key+'#falsch');staticDirty=true;}
+function labels(){$('alphaV').textContent=st.alpha.toFixed(1)+' CV';$('gainV').textContent='×'+st.gain;
+  document.querySelectorAll('.gainTag').forEach(e=>e.textContent='×'+st.gain);
+  $('noiseV').textContent=st.noise;$('brightV').textContent=(st.bright>0?'+':'')+st.bright;$('contrastV').textContent=st.contrast.toFixed(2);$('shiftV').textContent=st.shift+' px';}
+const bind=(id,fn,ev='input')=>$(id).addEventListener(ev,()=>{fn($(id));labels();paramChange();});
+bind('wmText',()=>setText());bind('wmKey',()=>setKey());
+bind('alpha',e=>st.alpha=+e.value);bind('mask',e=>st.mask=e.checked,'change');
+$('gain').addEventListener('input',e=>{st.gain=2**+e.target.value;labels();render();});
+bind('noise',e=>st.noise=+e.value);bind('blur',e=>st.blur=e.checked,'change');bind('bright',e=>st.bright=+e.value);
+bind('contrast',e=>st.contrast=+e.value);bind('shift',e=>st.shift=+e.value);
+bind('accum',e=>st.accumulate=e.checked,'change');bind('rightKey',e=>st.rightKey=e.checked,'change');
+$('resetAcc').addEventListener('click',paramChange);
+$('resetCh').addEventListener('click',()=>{for(const[id,v]of[['noise',0],['bright',0],['contrast',1],['shift',0]]){$(id).value=v;st[id]=v;}$('blur').checked=false;st.blur=false;labels();paramChange();});
+function setPlaying(p){st.playing=p;$('play').textContent=p?'Pause':'Abspielen';if(st.source==='video'){p?video.play().catch(()=>{}):video.pause();}}
+$('play').addEventListener('click',()=>setPlaying(!st.playing));
+$('step').addEventListener('click',()=>{setPlaying(false);st.t++;if(st.source==='video'&&video.duration){video.currentTime=(video.currentTime+1/25)%video.duration;video.addEventListener('seeked',()=>{acquire();processFrame();},{once:true});}else{acquire();processFrame();}});
+$('srcDemo').addEventListener('click',()=>{st.source='demo';video.pause();$('srcDemo').setAttribute('aria-pressed','true');$('srcHint').textContent='Synthetische Szene mit glatten Flächen und Texturen.';acquire();paramChange();});
+$('file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;
+  if(video.src)URL.revokeObjectURL(video.src);video.src=URL.createObjectURL(f);st.source='video';$('srcDemo').setAttribute('aria-pressed','false');
+  $('srcHint').textContent=f.name+' · auf 384 × 216 skaliert, nur lokal verarbeitet';
+  video.addEventListener('loadeddata',()=>{if(st.playing)video.play().catch(()=>{});acquire();paramChange();},{once:true});
+  video.onerror=()=>{$('srcHint').textContent='Dieses Videoformat kann der Browser nicht abspielen. MP4 (H.264) oder WebM verwenden.';st.source='demo';};});
+
+let last=0;
+function loop(ts){requestAnimationFrame(loop);if(!st.playing||ts-last<45)return;last=ts;st.t++;acquire();processFrame();}
+
+// Theme
+const reTheme=()=>{readTokens();staticDirty=true;render();};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',reTheme);
+new MutationObserver(reTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+new ResizeObserver(()=>drawChart()).observe($('chart'));
+
+// Start
+readTokens();setText();setKey();
+st.alpha=+$('alpha').value;st.gain=2**+$('gain').value;labels();
+acquire();processFrame();
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){setPlaying(false);for(let k=0;k<11;k++){st.t+=3;acquire();embed();channel();detect();}render();}
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
