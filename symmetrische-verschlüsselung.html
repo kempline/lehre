@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ein Schlüssel für beide Seiten – symmetrische Verschlüsselung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12121f; --panel:#16213e; --panel2:#1d2a4d; --line:#2c3a62;
+  --text:#e8e6f0; --muted:#a3a8c3; --dim:#6f7699;
+  --gold:#f5c26b; --pub:#4fd1a5; --priv:#ff7a8a; --warn:#ffb454; --blue:#7fb2ff;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#26254a 0%,transparent 60%),var(--bg);color:var(--text);font:18px/1.6 var(--sans)}
+a{color:var(--gold)}
+nav{position:sticky;top:0;z-index:10;background:rgba(18,18,31,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .in{max-width:1080px;margin:auto;display:flex;gap:4px;align-items:center;padding:10px 20px;overflow-x:auto}
+nav .brand{font-family:var(--serif);font-weight:600;margin-right:auto;white-space:nowrap;color:var(--gold);padding-right:12px}
+nav a{color:var(--muted);text-decoration:none;font-size:15px;padding:6px 11px;border-radius:999px;white-space:nowrap}
+nav a:hover{background:var(--panel);color:var(--text)}
+main{max-width:1080px;margin:auto;padding:0 20px 80px}
+header.hero{padding:72px 0 30px}
+.kicker{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600}
+h1{font-family:var(--serif);font-size:clamp(36px,5.4vw,62px);line-height:1.06;margin:.25em 0 .35em;font-weight:700}
+h2{font-family:var(--serif);font-size:clamp(30px,3.6vw,42px);line-height:1.15;margin:0 0 .4em;font-weight:600}
+h3{font-family:var(--serif);font-size:25px;margin:0 0 .5em;font-weight:600}
+h4{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 .6em;font-weight:600}
+.lead{font-size:21px;color:#cfd2e6;max-width:800px}
+section.part{padding-top:60px}
+.partlabel{display:inline-block;font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:3px 12px;border-radius:999px;margin-bottom:12px}
+.partlabel.atk{background:var(--priv)}
+.card{background:linear-gradient(180deg,var(--panel),#141c35);border:1px solid var(--line);border-radius:18px;padding:28px;margin:22px 0}
+.card.attack{border-color:rgba(255,122,138,.45);background:linear-gradient(180deg,#24192f,#171427)}
+.card.attack h3::before{content:"⚔ ";color:var(--priv)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.note{border-left:3px solid var(--gold);background:rgba(245,194,107,.07);padding:14px 18px;border-radius:0 12px 12px 0;margin:18px 0;color:#ddd9e8}
+.note.warn{border-color:var(--warn);background:rgba(255,180,84,.08)}
+.note.ok{border-color:var(--pub);background:rgba(79,209,165,.07)}
+.note.bad{border-color:var(--priv);background:rgba(255,122,138,.07)}
+details{margin:14px 0;color:var(--muted)}
+details summary{cursor:pointer;color:var(--blue);font-size:16px}
+.small{font-size:15px;color:var(--muted)}
+.mono{font-family:var(--mono)}
+button{font:600 16px var(--sans);border:0;border-radius:12px;padding:11px 18px;cursor:pointer;background:var(--gold);color:#1a1a2e;transition:transform .08s,opacity .2s}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.red{background:var(--priv)}
+button.green{background:var(--pub)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0}
+input[type=text],select{font:16px var(--mono);background:#0f1530;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 13px}
+input[type=text]{min-width:220px;flex:1;max-width:520px}
+input[type=range]{accent-color:var(--gold);width:260px}
+.textbox{font:17px/1.75 var(--mono);background:#0b1027;border:1px solid var(--line);border-radius:12px;padding:14px 16px;word-break:break-word;color:#cfd6f5;max-height:300px;overflow:auto}
+.textbox.gold{color:var(--gold)}
+.lbl{display:flex;justify-content:space-between;gap:10px;font-size:15px;color:var(--muted);margin:16px 0 6px}
+.lbl b{color:var(--text);font-weight:600}
+.status{font-size:16px;margin-top:10px;min-height:1.6em}
+.status.ok{color:var(--pub)} .status.err{color:var(--priv)}
+.fade{animation:fade .45s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+/* alphabet strip */
+.alpha{display:grid;grid-template-columns:repeat(26,1fr);gap:3px;font:600 15px var(--mono);text-align:center;margin:6px 0}
+.alpha span{padding:6px 0;border-radius:6px;background:#0f1530;border:1px solid var(--line)}
+.alpha.top span{color:var(--text)}
+.alpha.bot span{color:var(--gold);border-color:rgba(245,194,107,.35)}
+.alpha span.hi{background:var(--gold);color:#1a1a2e}
+.arrowrow{display:grid;grid-template-columns:repeat(26,1fr);text-align:center;color:var(--dim);font-size:12px;line-height:1}
+@media(max-width:700px){.alpha{font-size:11px}}
+/* freq chart */
+.freq{display:grid;grid-template-columns:repeat(26,1fr);gap:4px;align-items:end;height:200px;padding:8px 4px 0;background:#0b1027;border:1px solid var(--line);border-radius:12px 12px 0 0}
+.freq .col{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.freq .ref{position:absolute;bottom:0;left:8%;right:8%;border:1.5px dashed var(--pub);border-bottom:0;border-radius:3px 3px 0 0;opacity:.8}
+.freq .obs{position:relative;width:62%;background:var(--gold);border-radius:3px 3px 0 0;transition:height .5s}
+.freq .obs.peak{background:var(--priv)}
+.freqlbl{display:grid;grid-template-columns:repeat(26,1fr);gap:4px;font:600 13px var(--mono);text-align:center;color:var(--muted);background:#0b1027;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:4px 4px 6px}
+.legend{display:flex;gap:18px;font-size:14px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:10px;margin-right:6px;vertical-align:middle;border-radius:2px}
+/* brute list */
+.brute{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px;margin-top:12px}
+.brute div{font:15px var(--mono);background:#0f1530;border:1px solid var(--line);border-radius:8px;padding:6px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8f95b5}
+.brute div b{color:var(--muted);display:inline-block;width:30px}
+.brute div.best{background:rgba(79,209,165,.15);border-color:var(--pub);color:var(--text)}
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:16px}
+th{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid rgba(44,58,98,.6);vertical-align:middle}
+td.m{font-family:var(--mono)}
+tr.hl td{background:rgba(245,194,107,.07)}
+tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+/* substitution */
+.subtext{font:18px/2 var(--mono);background:#0b1027;border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-height:330px;overflow:auto;word-break:break-word}
+.subtext .u{color:#5d6489}
+.subtext .g{color:var(--gold)}
+.subtext .ok{color:var(--pub)}
+.subtext .no{color:var(--priv);text-decoration:underline}
+.maptab{display:grid;grid-template-columns:repeat(13,1fr);gap:6px;margin-top:12px}
+@media(max-width:820px){.maptab{grid-template-columns:repeat(7,1fr)}}
+.mp{background:#0f1530;border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center}
+.mp .c{font:700 18px var(--mono);color:#8f95b5}
+.mp .p{font-size:12px;color:var(--dim)}
+.mp select{width:100%;padding:4px 2px;font-size:15px;text-align:center;margin-top:4px}
+.mp.ok{border-color:var(--pub)} .mp.no{border-color:var(--priv)}
+/* vigenere */
+.vtab{overflow-x:auto}
+.vtab table{font:600 17px var(--mono);width:auto}
+.vtab td{padding:5px 7px;text-align:center;border:0}
+.vtab td.h{font:13px var(--sans);color:var(--muted);text-align:right;padding-right:14px;white-space:nowrap}
+.vtab tr.k td:not(.h){color:var(--blue)}
+.vtab tr.c td:not(.h){color:var(--gold)}
+.icchart{display:grid;grid-template-columns:repeat(16,1fr);gap:6px;align-items:end;height:170px;position:relative;background:#0b1027;border:1px solid var(--line);border-radius:12px 12px 0 0;padding:8px 6px 0}
+.icchart .b{background:#3b4a7a;border-radius:3px 3px 0 0;transition:height .4s}
+.icchart .b.on{background:var(--pub)}
+.icchart .thr{position:absolute;left:0;right:0;border-top:1.5px dashed var(--priv)}
+.icchart .thr span{position:absolute;right:8px;top:-20px;font-size:12px;color:var(--priv)}
+.iclbl{display:grid;grid-template-columns:repeat(16,1fr);gap:6px;font:600 13px var(--mono);text-align:center;color:var(--muted);background:#0b1027;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;padding:4px 6px 6px}
+.keyreveal{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.keyreveal span{font:700 26px var(--mono);width:46px;height:56px;display:grid;place-items:center;border-radius:10px;background:#0f1530;border:1px solid var(--line);color:#3b4468}
+.keyreveal span.on{color:var(--priv);border-color:var(--priv);animation:fade .4s}
+.stepper{display:grid;gap:12px;margin-top:14px}
+.stp{background:#0f1530;border:1px solid var(--line);border-radius:14px;padding:16px;opacity:.35;transition:opacity .4s}
+.stp.on{opacity:1}
+.stp .t{font-weight:600;color:var(--priv);font-size:15px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+/* bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap}
+.byte{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.byte span{width:20px;height:24px;display:grid;place-items:center;font:600 13px var(--mono);border-radius:4px;background:#0f1530;color:#5d6489}
+.byte span.one{background:#2b3966;color:var(--text)}
+.xor td{vertical-align:middle}
+.xor td.h{font-size:14px;color:var(--muted);white-space:nowrap;padding-right:14px}
+.xor .ch{font:700 20px var(--mono);text-align:center;width:44px}
+.xor tr.key .byte span.one{background:rgba(127,178,255,.35)}
+.xor tr.ct .byte span.one{background:rgba(245,194,107,.45);color:#1a1a2e}
+.grid128{display:grid;grid-template-columns:repeat(32,1fr);gap:3px;max-width:760px}
+.grid128 span{aspect-ratio:1;border-radius:3px;background:#0f1530;border:1px solid #1f2a4c}
+.grid128 span.one{background:#3b4a7a}
+.grid128 span.ch{border-color:var(--priv);box-shadow:0 0 0 1px var(--priv) inset}
+.grid128 span.ch.one{background:var(--priv)}
+.big{font:22px var(--mono);color:var(--gold)}
+.bar{position:relative;height:14px;background:#0b1027;border-radius:99px;min-width:140px;border:1px solid var(--line)}
+.bar>div{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,var(--pub),var(--gold) 40%,var(--priv))}
+.bar>i{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;opacity:.7}
+.take{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:820px){.take{grid-template-columns:1fr}}
+.take div{background:#0f1530;border:1px solid var(--line);border-radius:14px;padding:18px}
+.take b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold);margin-bottom:6px}
+.timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:20px}
+@media(max-width:820px){.timeline{grid-template-columns:1fr 1fr}}
+.timeline div{background:#0f1530;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px;color:#cdd0e3}
+.timeline b{display:block;font-family:var(--serif);color:var(--gold);font-size:19px}
+footer{border-top:1px solid var(--line);margin-top:60px;padding-top:24px;font-size:14px;color:var(--muted)}
+footer li{margin:4px 0}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <span class="brand">Symmetrische Verschlüsselung</span>
+  <a href="#idee">Idee</a><a href="#caesar">Caesar</a><a href="#substitution">Substitution</a><a href="#vigenere">Vigenère</a><a href="#xor">XOR &amp; One-Time-Pad</a><a href="#aes">AES</a><a href="#vergleich">Vergleich</a>
+</div></nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">Digitales Kino · Begleitseite zum Skript</div>
+  <h1>Ein Schlüssel für beide&nbsp;Seiten</h1>
+  <p class="lead">Von Caesars Briefen bis zum verschlüsselten DCP: Wie symmetrische Verschlüsselung funktioniert, wie Angreifer jedes historische Verfahren geknackt haben – und warum AES bis heute standhält.</p>
+</header>
+
+<section id="idee" class="part">
+  <h2>Die Idee: eine Haustür</h2>
+  <div class="grid2">
+    <div>
+      <p>Bei der <b>symmetrischen</b> Verschlüsselung benutzen Sender und Empfänger <b>denselben Schlüssel</b> – wie bei einer Haustür, die mit demselben Schlüssel auf- und zugeschlossen wird.</p>
+      <p>Jedes Verfahren besteht aus zwei Teilen: der <b>Methode</b> (wie wird verschlüsselt?) und dem <b>Schlüssel</b> (mit welcher Einstellung?). Ein Grundsatz der Kryptografie, das <b>Kerckhoffs-Prinzip</b> (1883), lautet: Die Methode darf öffentlich sein. Die Sicherheit muss allein im Schlüssel liegen.</p>
+    </div>
+    <div class="note">
+      <h4 style="margin-top:0;color:var(--gold)">Im Digitalen Kino</h4>
+      Bild und Ton im DCP sind mit <b>AES-128</b> verschlüsselt – einem symmetrischen Verfahren. Den Schlüssel dazu bekommt der Kinoserver per KDM, und der ist mit <b>RSA</b> geschützt (siehe Begleitseite <a href="https://claude.ai/artifact/6f9FTg66ewkQFePA46CNqa">„Das Schloss, das jeder zudrücken kann“</a>).
+      <p class="small" style="margin-bottom:0">Auf dieser Seite folgt nach jedem Verfahren ein <span style="color:var(--priv)">⚔ Angriff</span>: So wurde es in der Geschichte geknackt.</p>
+    </div>
+  </div>
+  <div class="timeline">
+    <div><b>ca. 50 v. Chr.</b>Caesar verschiebt Buchstaben</div>
+    <div><b>9. Jh.</b>Al-Kindi beschreibt die Häufigkeitsanalyse</div>
+    <div><b>1553 / 1586</b>Bellaso und Vigenère: das Schlüsselwort</div>
+    <div><b>1863</b>Kasiski knackt Vigenère</div>
+    <div><b>2001</b>AES wird Standard – 2005 im DCI-Kino</div>
+  </div>
+</section>
+
+<!-- ================= CAESAR ================= -->
+<section id="caesar" class="part">
+  <span class="partlabel">Verfahren 1</span>
+  <h2>Caesar: alles um ein paar Stellen verschieben</h2>
+  <div class="card">
+    <p>Jeder Buchstabe wird um eine feste Anzahl von Stellen im Alphabet weitergerückt. Nach Z geht es wieder bei A los. <b>Der Schlüssel ist einfach diese Zahl.</b> Caesar soll 3 benutzt haben.</p>
+    <div class="row"><span>Verschiebung:</span><input type="range" id="cShift" min="1" max="25" value="3"><b class="big" id="cShiftV">3</b></div>
+    <div class="alpha top" id="cTop"></div>
+    <div class="arrowrow" id="cArr"></div>
+    <div class="alpha bot" id="cBot"></div>
+    <div class="lbl"><span>Klartext</span></div>
+    <input type="text" id="cIn" value="Treffen nach der Premiere am Hintereingang" style="max-width:none;width:100%">
+    <div class="lbl"><span>Geheimtext</span></div>
+    <div class="textbox gold" id="cOut"></div>
+  </div>
+
+  <div class="card attack">
+    <h3>Angriff A: einfach alles ausprobieren</h3>
+    <p>Es gibt nur <b>25 mögliche Schlüssel</b>. Ein Angreifer probiert sie schlicht alle durch und schaut, welches Ergebnis nach Sprache aussieht. Der Rechner kann das sogar selbst erkennen: Er vergleicht, wie gut die Buchstabenhäufigkeiten zum Deutschen passen.</p>
+    <div class="row"><button class="red" id="cBrute">Alle 25 Schlüssel ausprobieren</button><span class="small" id="cBruteInfo"></span></div>
+    <div class="brute" id="cBruteOut"></div>
+  </div>
+
+  <div class="card attack">
+    <h3>Angriff B: Buchstaben zählen</h3>
+    <p>Im Deutschen ist <b>E</b> mit Abstand der häufigste Buchstabe (rund 17 %), danach folgen N, I, S, R. Caesar verschiebt alle Buchstaben gleich – also verschiebt sich auch das ganze Häufigkeitsmuster nur. Ein längerer abgefangener Text genügt: Der höchste Balken ist fast sicher das verschlüsselte E.</p>
+    <div class="row"><button class="red" id="cFreq">Abgefangenen Brief auszählen</button></div>
+    <div id="cFreqOut" style="display:none">
+      <div class="lbl"><span>Abgefangener Geheimtext (Ausschnitt)</span></div>
+      <div class="textbox gold" id="cLong" style="max-height:120px"></div>
+      <h4>Häufigkeiten im Geheimtext</h4>
+      <div class="freq" id="cChart"></div><div class="freqlbl" id="cChartL"></div>
+      <div class="legend"><span><i style="background:var(--gold)"></i>Geheimtext</span><span><i style="border:1.5px dashed var(--pub)"></i>normales Deutsch, an derselben Stelle</span><span><i style="background:var(--priv)"></i>häufigster Buchstabe</span></div>
+      <div class="status" id="cFreqRes"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SUBSTITUTION ================= -->
+<section id="substitution" class="part">
+  <span class="partlabel">Verfahren 2</span>
+  <h2>Substitution: ein völlig durcheinandergewürfeltes Alphabet</h2>
+  <div class="card">
+    <p>Statt nur zu verschieben, wird jedem Buchstaben ein beliebiger anderer zugeordnet. Der Schlüssel ist die ganze Zuordnungstabelle. Davon gibt es <b>26 × 25 × 24 × … × 1 ≈ 403 Quadrillionen</b> (eine Zahl mit 27 Stellen). Alle durchzuprobieren ist hoffnungslos – Ausprobieren scheidet als Angriff also aus.</p>
+    <div class="alpha top" id="sTop"></div>
+    <div class="alpha bot" id="sBot"></div>
+    <div class="row"><button class="ghost" id="sNew">Neues Zufallsalphabet</button></div>
+  </div>
+
+  <div class="card attack">
+    <h3>Angriff: Häufigkeiten verraten trotzdem alles</h3>
+    <p>Der riesige Schlüsselraum hilft nicht, denn jeder Buchstabe wird <b>immer gleich</b> ersetzt. Das Häufigkeitsmuster bleibt erhalten, es ist nur umsortiert. Versuchen Sie es selbst: Ordnen Sie den Geheimbuchstaben Klartextbuchstaben zu. Beginnen Sie mit dem Vorschlag nach Häufigkeit und raten Sie dann anhand kurzer Wörter weiter (DER, DIE, UND …).</p>
+    <div class="row">
+      <button class="red" id="sSuggest">Nach Häufigkeit vorschlagen</button>
+      <button class="ghost" id="sCheck">Prüfen</button>
+      <button class="ghost" id="sClear">Leeren</button>
+      <button class="ghost" id="sSolve">Lösung zeigen</button>
+      <span class="small" id="sScore"></span>
+    </div>
+    <div class="subtext" id="sText"></div>
+    <h4>Zuordnung · Geheimbuchstabe (Anteil) → Ihre Vermutung</h4>
+    <div class="maptab" id="sMap"></div>
+    <p class="small">Der reine Häufigkeitsvorschlag trifft meist schon E, N und einige weitere Buchstaben. Den Rest erledigt das Sprachgefühl – genau so haben Kryptoanalytiker jahrhundertelang gearbeitet.</p>
+  </div>
+</section>
+
+<!-- ================= VIGENERE ================= -->
+<section id="vigenere" class="part">
+  <span class="partlabel">Verfahren 3</span>
+  <h2>Vigenère: viele Caesars im Wechsel</h2>
+  <div class="card">
+    <p>Der Schlüssel ist ein <b>Wort</b>. Jeder Buchstabe des Schlüsselworts gibt eine eigene Verschiebung vor (A = 0, B = 1 … Z = 25). Das Wort wird immer wieder unter den Text geschrieben. So wird dasselbe E mal zu diesem, mal zu jenem Buchstaben – das Häufigkeitsmuster verschwimmt. Drei Jahrhunderte lang galt das Verfahren als <i>„le chiffre indéchiffrable“</i>, die unknackbare Chiffre.</p>
+    <div class="row"><span>Schlüsselwort:</span><input type="text" id="vKey" value="LEINWAND" maxlength="16" style="max-width:260px"><span class="small" id="vKeyInfo"></span></div>
+    <div class="vtab"><table id="vTab"></table></div>
+    <div class="lbl"><span>Der ganze Brief, verschlüsselt</span><span>in Fünfergruppen – Leerzeichen würden Wortlängen verraten</span></div>
+    <div class="textbox gold" id="vOut" style="max-height:160px"></div>
+    <h4>Häufigkeiten im Geheimtext</h4>
+    <div class="freq" id="vChart"></div><div class="freqlbl" id="vChartL"></div>
+    <div class="legend"><span><i style="background:var(--gold)"></i>Vigenère-Geheimtext</span><span><i style="border:1.5px dashed var(--pub)"></i>normales Deutsch</span></div>
+    <p class="small">Kein Buchstabe sticht mehr hervor. Die Zählmethode, mit der Caesar fiel, läuft hier ins Leere.</p>
+  </div>
+
+  <div class="card attack">
+    <h3>Angriff: erst die Schlüssellänge, dann lauter Caesars</h3>
+    <p>Der Trick von Kasiski und Friedman: Wenn man die Länge des Schlüsselworts kennt, zerfällt der Text in Spalten – und jede Spalte ist ganz gewöhnlich mit Caesar verschlüsselt.</p>
+    <div class="row"><button class="red" id="vAtk">Angriff Schritt für Schritt</button><button class="ghost" id="vAtkReset">Zurücksetzen</button></div>
+    <div class="stepper">
+      <div class="stp" id="vs1"><div class="t">Schritt 1 · Schlüssellänge finden</div>
+        <p class="small" style="margin-top:0">Für jede mögliche Länge wird der Text in so viele Spalten aufgeteilt. Bei der richtigen Länge sieht jede Spalte wieder „deutsch-holprig“ aus: Gleiche Buchstaben treffen sich viel öfter als im Zufall. Dieses Maß heißt <b>Koinzidenzindex</b>.</p>
+        <div class="icchart" id="icChart"></div><div class="iclbl" id="icLbl"></div>
+        <div class="status" id="vs1r"></div>
+      </div>
+      <div class="stp" id="vs2"><div class="t">Schritt 2 · Jede Spalte wie Caesar knacken</div>
+        <p class="small" style="margin-top:0">Pro Spalte werden alle 26 Verschiebungen ausprobiert. Gewählt wird die, deren Häufigkeiten am besten zum Deutschen passen. Jede Verschiebung ist ein Buchstabe des Schlüsselworts.</p>
+        <div class="keyreveal" id="keyRev"></div>
+      </div>
+      <div class="stp" id="vs3"><div class="t">Schritt 3 · Lesen</div>
+        <div class="textbox" id="vPlain" style="max-height:140px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= XOR / OTP ================= -->
+<section id="xor" class="part">
+  <span class="partlabel">Verfahren 4</span>
+  <h2>XOR und das One-Time-Pad: Verschlüsselung auf Bit-Ebene</h2>
+  <div class="card">
+    <p>Computer verschlüsseln keine Buchstaben, sondern <b>Bits</b>. Jedes Zeichen ist eine Folge von acht Nullen und Einsen. Die wichtigste Grundoperation heißt <b>XOR</b> und folgt einer einzigen Regel: <b>Sind zwei Bits gleich, kommt 0 heraus. Sind sie verschieden, kommt 1 heraus.</b> Wendet man denselben Schlüssel ein zweites Mal an, ist die Nachricht wieder da.</p>
+    <div class="row"><input type="text" id="xMsg" value="KINO" maxlength="6" style="max-width:200px"><button class="ghost" id="xNewKey">Neuen Zufallsschlüssel würfeln</button></div>
+    <div style="overflow-x:auto"><table class="xor" id="xTab"></table></div>
+  </div>
+
+  <div class="card attack">
+    <h3>Angriff? Zwecklos – wenn man es richtig macht</h3>
+    <p>Ist der Schlüssel <b>echter Zufall</b>, <b>genauso lang wie die Nachricht</b> und wird er <b>nur ein einziges Mal</b> benutzt, heißt das Verfahren <b>One-Time-Pad</b>. Es ist beweisbar unknackbar: Zu jedem Geheimtext passt <i>jede</i> denkbare Nachricht gleicher Länge – mit irgendeinem Schlüssel. Der Angreifer kann nichts ausschließen.</p>
+    <div class="lbl"><span>Abgefangener Geheimtext (21 Zeichen, Hex)</span></div>
+    <div class="textbox gold" id="oCt"></div>
+    <div class="lbl"><span>Was könnte drinstehen? Schreiben Sie eine beliebige Nachricht mit 21 Zeichen:</span><span id="oLen"></span></div>
+    <input type="text" id="oGuess" value="FILM LAEUFT AB MORGEN" style="max-width:none;width:100%">
+    <div class="lbl"><span>Dieser Schlüssel würde genau Ihre Nachricht ergeben</span></div>
+    <div class="textbox" id="oKey" style="color:var(--blue)"></div>
+    <div class="row"><button class="ghost" id="oReveal">Echte Nachricht zeigen</button><span class="status" id="oReal" style="margin:0"></span></div>
+    <div class="grid2">
+      <div class="note bad"><b>Der Haken:</b> Für ein DCP mit 200 GB bräuchte das Kino vorab 200 GB geheimes Schlüsselmaterial – für jeden Film neu und auf sicherem Weg geliefert. Das Schlüsselproblem ist damit nur verschoben.</div>
+      <div class="note warn"><b>Nie zweimal benutzen:</b> Verschlüsselt man zwei Nachrichten mit demselben Schlüssel, hebt sich der Schlüssel beim Vergleich der beiden Geheimtexte auf. So wurden im Kalten Krieg sowjetische Funksprüche entziffert (Projekt Venona).</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= AES ================= -->
+<section id="aes" class="part">
+  <span class="partlabel">Verfahren 5</span>
+  <h2>AES: das Verfahren im Kino</h2>
+  <div class="card">
+    <p>AES arbeitet mit Blöcken von 16 Byte (128 Bit). Jeder Block durchläuft zehn Runden aus Ersetzen, Vertauschen, Vermischen und Schlüssel-XOR. Im Prinzip sind das dieselben Zutaten wie bei den alten Verfahren, nur so oft und so geschickt kombiniert, dass keine Muster übrig bleiben. Das Ergebnis ist der <b>Lawineneffekt</b>: Ändert sich nur <b>ein</b> Zeichen der Nachricht oder <b>ein</b> Bit des Schlüssels, ändert sich etwa <b>die Hälfte</b> aller Bits im Geheimtext – völlig unvorhersehbar.</p>
+    <div class="lbl"><span>Klartextblock (16 Zeichen) – ändern Sie ein einzelnes Zeichen</span></div>
+    <input type="text" id="aIn" value="KINOSTART 20 UHR" maxlength="16" style="max-width:none;width:100%">
+    <div class="row"><button class="ghost" id="aFlip">Ein Bit im Schlüssel kippen</button><button class="ghost" id="aNewKey">Neuer Schlüssel</button></div>
+    <div class="grid2">
+      <div>
+        <h4>Caesar (Verschiebung 3) – vorher / nachher</h4>
+        <div class="textbox" id="aCaesar" style="font-size:20px"></div>
+        <p class="small" id="aCaesarInfo"></p>
+      </div>
+      <div>
+        <h4>AES-128 – Geheimtext als 128 Bit</h4>
+        <div class="grid128" id="aGrid"></div>
+        <p class="small" id="aInfo"></p>
+      </div>
+    </div>
+    <div class="note">Gegen AES ist kein Angriff bekannt, der wesentlich besser ist als stures Ausprobieren aller 2<sup>128</sup> Schlüssel. Häufigkeitsanalyse, Spaltentricks, Mustersuche – alles, was auf dieser Seite funktioniert hat, findet bei AES keinen Ansatzpunkt.</div>
+    <p class="small" id="aNoCrypto" style="display:none;color:var(--priv)">Web-Crypto steht in dieser Ansicht nicht zur Verfügung. Bitte die Seite direkt im Browser öffnen.</p>
+  </div>
+</section>
+
+<!-- ================= VERGLEICH ================= -->
+<section id="vergleich" class="part">
+  <span class="partlabel atk">Sicherheit</span>
+  <h2>Großer Schlüsselraum allein reicht nicht</h2>
+  <div class="card">
+    <p>Wie lange bräuchte <b>dieser Rechner</b>, um alle Schlüssel auszuprobieren? Zuerst wird gemessen, wie viele Schlüssel er pro Sekunde testen kann (entschlüsseln und prüfen, ob Deutsch herauskommt). Die letzte Spalte zeigt dann den Angriff, mit dem das Verfahren tatsächlich fiel.</p>
+    <div class="row"><button id="bench">Geschwindigkeit messen</button><span class="small" id="benchInfo"></span></div>
+    <div style="overflow-x:auto"><table id="cmp" style="display:none">
+      <thead><tr><th>Verfahren</th><th>Mögliche Schlüssel</th><th>Alle ausprobieren: dieser Rechner</th><th>1 Mrd. solcher Rechner</th><th style="min-width:130px">Zeitskala</th><th>Tatsächlich geknackt durch</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="small" id="cmpNote" style="display:none">Zeitskala logarithmisch, weißer Strich = Alter des Universums (13,8 Mrd. Jahre). Für DES und AES gilt das gemessene Tempo nur als grober Anhaltspunkt – Spezialhardware ist um Größenordnungen schneller, und an den Größenordnungen der Tabelle ändert das nichts.</p>
+  </div>
+  <div class="grid2">
+    <div class="note bad"><b>Substitution</b> hat mehr Schlüssel als DES – und ist trotzdem in Minuten von Hand geknackt. Entscheidend ist nicht nur die Zahl der Schlüssel, sondern ob das Verfahren <b>Muster im Text verwischt</b>.</div>
+    <div class="note ok"><b>AES-128</b> hat beides: einen riesigen Schlüsselraum und keine verwertbaren Muster. Selbst eine Milliarde Rechner bräuchte länger, als das Universum alt ist.</div>
+  </div>
+</section>
+
+<section class="part">
+  <h2>Drei Sätze zum Mitnehmen</h2>
+  <div class="take">
+    <div><b>Muster sind der Feind</b>Caesar, Substitution und Vigenère fielen nicht durch Ausprobieren, sondern weil sie die Statistik der Sprache durchschimmern ließen.</div>
+    <div><b>Schlüssellänge zählt – aber nicht allein</b>DES fiel 1998 durch reines Ausprobieren, weil 56 Bit zu wenig waren. AES nimmt 128 Bit und mehr.</div>
+    <div><b>Das Schlüsselproblem bleibt</b>Symmetrisch heißt: Beide brauchen denselben Schlüssel. Wie er sicher ins Kino kommt, löst RSA im KDM.</div>
+  </div>
+</section>
+
+<footer>
+  <b>Quellen und Hinweise</b>
+  <ul>
+    <li>Buchstabenhäufigkeiten im Deutschen: gängige Referenzwerte (E ≈ 17,4 %, N ≈ 9,8 %, I ≈ 7,6 % …)</li>
+    <li>DES Challenges: <a href="https://en.wikipedia.org/wiki/DES_Challenges">Übersicht</a> · <a href="https://en.wikipedia.org/wiki/EFF_DES_cracker">EFF „Deep Crack“</a> (Juli 1998: 56 Stunden; Januar 1999 zusammen mit distributed.net: 22 h 15 min)</li>
+    <li>Friedrich Wilhelm Kasiski: <i>Die Geheimschriften und die Dechiffrir-Kunst</i>, 1863 · William F. Friedman: Koinzidenzindex, 1922</li>
+    <li>AES: FIPS 197 (2001); im Digitalen Kino AES-128 laut DCI-Spezifikation / SMPTE ST 429-6</li>
+  </ul>
+  <p>Alle Berechnungen laufen lokal im Browser. Umlaute werden als AE, OE, UE und ß als SS geschrieben.</p>
+</footer>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const de = (x,f=0) => Number(x).toLocaleString('de-DE',{maximumFractionDigits:f});
+const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const DE = [6.51,1.89,3.06,5.08,17.40,1.66,3.01,4.76,7.55,0.27,1.21,3.44,2.53,9.78,2.51,0.79,0.02,7.00,7.27,6.15,4.35,0.67,1.89,0.03,0.04,1.13];
+const DE_ORDER = 'ENISRATDHULCGMOBWFKZPVJYXQ';
+const SAMPLE = 'Wenn im Kino das Licht ausgeht, beginnt eine Reise, die von vielen Menschen vorbereitet wurde. Der Film kommt heute nicht mehr auf Rollen aus Zelluloid in den Saal, sondern als Datenpaket auf einer Festplatte oder über eine Leitung. Damit niemand die Bilder vor dem Starttermin kopieren kann, sind die Dateien verschlüsselt. Erst wenn der Server im Projektionsraum den passenden Schlüssel erhält, kann er die Bilder entschlüsseln und an den Projektor weitergeben. Die Vorführerin sieht davon wenig. Sie startet die Wiedergabe, prüft Ton und Bild und achtet darauf, dass die Vorstellung pünktlich beginnt. Das Publikum sieht nur das Ergebnis: einen hellen, scharfen Film auf einer großen Leinwand. Hinter dieser Selbstverständlichkeit steht jedoch eine lange Geschichte der Geheimschrift, die bis in die Antike zurückreicht. Schon der römische Feldherr Gaius Julius Caesar soll seine Briefe verschlüsselt haben, indem er jeden Buchstaben um drei Stellen im Alphabet verschob. Was damals genügte, um einen Boten zu täuschen, hält heute keinem Angriff mehr stand. Wer die Methoden der Angreifer versteht, versteht auch, warum moderne Verfahren so aufgebaut sind, wie sie es sind.';
+
+const norm = t => t.toUpperCase().replace(/Ä/g,'AE').replace(/Ö/g,'OE').replace(/Ü/g,'UE').replace(/ß/g,'SS');
+const lettersOnly = t => norm(t).replace(/[^A-Z]/g,'');
+const idx = c => c.charCodeAt(0)-65;
+const shiftCh = (c,k) => A[((idx(c)+k)%26+26)%26];
+const caesar = (t,k) => norm(t).replace(/[A-Z]/g, c => shiftCh(c,k));
+function counts(t){ const c=new Array(26).fill(0); for (const ch of t){ const i=idx(ch); if (i>=0&&i<26) c[i]++; } return c; }
+function chi(c){ const N=c.reduce((a,b)=>a+b,0)||1; let s=0; for (let i=0;i<26;i++){ const e=N*DE[i]/100; s+=(c[i]-e)**2/e; } return s; }
+const rot = (c,s) => c.map((_,i)=>c[(i+s)%26]);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const rnd = n => { const a=new Uint32Array(1); crypto.getRandomValues(a); return a[0]%n; };
+
+/* ---------- time formatting ---------- */
+const LOG_YEAR = Math.log10(31557600), LOG_UNIVERSE = Math.log10(1.38e10);
+function bigWords(L){
+  if (L < 6) return de(Math.round(10**L));
+  if (L >= 27) return '10<sup>'+Math.floor(L)+'</sup>';
+  const names=[[24,'Quadrillionen'],[21,'Trilliarden'],[18,'Trillionen'],[15,'Billiarden'],[12,'Billionen'],[9,'Milliarden'],[6,'Millionen']];
+  for (const [k,nm] of names) if (L>=k){ const v=10**(L-k); return de(v, v<10?1:0)+' '+nm; }
+}
+function humanTime(L){
+  if (L < -3) return 'unter 1 ms';
+  const s = 10**L;
+  if (s < 1) return de(s*1000)+' ms';
+  if (s < 60) return de(s, s<10?1:0)+' s';
+  if (s < 3600) return de(s/60,1)+' Min.';
+  if (s < 86400) return de(s/3600,1)+' Std.';
+  if (s < 31557600) return de(s/86400, s<864000?1:0)+' Tage';
+  const Ly = L - LOG_YEAR;
+  let out = (Ly<6 ? de(10**Ly, 10**Ly<10?1:0) : bigWords(Ly))+' Jahre';
+  if (Ly > LOG_UNIVERSE+0.3) out += '<br><span class="small">≈ '+bigWords(Ly-LOG_UNIVERSE)+'× Alter des Universums</span>';
+  return out;
+}
+
+/* ---------- frequency chart ---------- */
+function freqChart(el, lblEl, c, refShift=0, markPeak=true){
+  const N = c.reduce((a,b)=>a+b,0)||1;
+  const pct = c.map(x=>100*x/N);
+  const max = Math.max(18, ...pct);
+  const peak = pct.indexOf(Math.max(...pct));
+  el.innerHTML = pct.map((p,i) => {
+    const ref = DE[((i-refShift)%26+26)%26];
+    return `<div class="col" title="${A[i]}: ${de(p,1)} %"><div class="ref" style="height:${ref/max*100}%"></div><div class="obs${markPeak&&i===peak?' peak':''}" style="height:0" data-h="${p/max*100}"></div></div>`;
+  }).join('');
+  lblEl.innerHTML = [...A].map(x=>`<span>${x}</span>`).join('');
+  requestAnimationFrame(()=>requestAnimationFrame(()=> el.querySelectorAll('.obs').forEach(b=> b.style.height=b.dataset.h+'%')));
+  return peak;
+}
+
+/* ================= CAESAR ================= */
+function renderCaesar(){
+  const k = +$('#cShift').value; $('#cShiftV').textContent = k;
+  const plainLetters = new Set(lettersOnly($('#cIn').value));
+  $('#cTop').innerHTML = [...A].map(c=>`<span class="${plainLetters.has(c)?'hi':''}">${c}</span>`).join('');
+  $('#cArr').innerHTML = [...A].map(()=>'<span>↓</span>').join('');
+  $('#cBot').innerHTML = [...A].map(c=>`<span>${shiftCh(c,k)}</span>`).join('');
+  $('#cOut').textContent = caesar($('#cIn').value, k);
+  $('#cBruteOut').innerHTML=''; $('#cBruteInfo').textContent=''; $('#cFreqOut').style.display='none';
+}
+$('#cShift').oninput = renderCaesar; $('#cIn').oninput = renderCaesar;
+$('#cBrute').onclick = () => {
+  const ct = caesar($('#cIn').value, +$('#cShift').value);
+  const rows = []; let best=1, bestS=Infinity;
+  for (let k=1;k<=25;k++){ const pt = caesar(ct, -k); const s = chi(counts(lettersOnly(pt))); rows.push([k,pt]); if (s<bestS){ bestS=s; best=k; } }
+  const out = $('#cBruteOut'); out.innerHTML='';
+  rows.forEach(([k,pt],i) => setTimeout(() => {
+    const d = document.createElement('div'); d.className='fade'+(k===best?' best':''); d.innerHTML = `<b>${k}</b>${esc(pt)}`; out.appendChild(d);
+    if (k===25) $('#cBruteInfo').innerHTML = `Fertig – der Rechner tippt auf Schlüssel <b style="color:var(--pub)">${best}</b> (grün markiert).`;
+  }, i*60));
+};
+$('#cFreq').onclick = () => {
+  const k = +$('#cShift').value; const ct = caesar(SAMPLE, k);
+  $('#cFreqOut').style.display='block'; $('#cLong').textContent = ct;
+  const c = counts(lettersOnly(ct));
+  const peak = freqChart($('#cChart'), $('#cChartL'), c, k);
+  const guess = ((peak-4)%26+26)%26;
+  $('#cFreqRes').className = 'status ' + (guess===k?'ok':'err');
+  $('#cFreqRes').innerHTML = `Häufigster Buchstabe: <b class="mono">${A[peak]}</b>. Wenn das ein E ist, beträgt die Verschiebung <b class="mono">${guess}</b>. ${guess===k ? '✓ Richtig – der Schlüssel ist gefunden.' : 'Diesmal knapp daneben – der Angreifer probiert dann eben den nächsthöheren Balken.'}<br>Entschlüsselt: <span class="mono" style="color:var(--text)">${esc(caesar(ct,-guess).slice(0,90))} …</span>`;
+};
+
+/* ================= SUBSTITUTION ================= */
+const sub = {};
+function newSub(){
+  const p = [...A]; for (let i=25;i>0;i--){ const j=rnd(i+1); [p[i],p[j]]=[p[j],p[i]]; }
+  sub.enc = {}; sub.dec = {}; [...A].forEach((c,i)=>{ sub.enc[c]=p[i]; sub.dec[p[i]]=c; });
+  sub.ct = norm(SAMPLE).replace(/[A-Z]/g, c=>sub.enc[c]);
+  sub.cnt = counts(lettersOnly(sub.ct)); sub.N = sub.cnt.reduce((a,b)=>a+b,0);
+  sub.guess = {}; sub.check = false;
+  $('#sTop').innerHTML = [...A].map(c=>`<span>${c}</span>`).join('');
+  $('#sBot').innerHTML = [...A].map(c=>`<span>${sub.enc[c]}</span>`).join('');
+  renderSubMap(); renderSubText();
+}
+function renderSubMap(){
+  const order = [...A].sort((a,b)=>sub.cnt[idx(b)]-sub.cnt[idx(a)]);
+  $('#sMap').innerHTML = order.map(c => {
+    const g = sub.guess[c]||''; const cls = sub.check && g ? (sub.dec[c]===g?' ok':' no') : '';
+    return `<div class="mp${cls}"><div class="c">${c}</div><div class="p">${de(100*sub.cnt[idx(c)]/sub.N,1)} %</div>
+      <select data-c="${c}" aria-label="Vermutung für ${c}"><option value="">–</option>${[...A].map(x=>`<option${x===g?' selected':''}>${x}</option>`).join('')}</select></div>`;
+  }).join('');
+  $('#sMap').querySelectorAll('select').forEach(s => s.onchange = () => { const c=s.dataset.c; if (s.value) sub.guess[c]=s.value; else delete sub.guess[c]; sub.check=false; renderSubMap(); renderSubText(); });
+}
+function renderSubText(){
+  let html=''; let right=0, set=0;
+  for (const ch of sub.ct){
+    if (ch>='A' && ch<='Z'){
+      const g = sub.guess[ch];
+      if (g){ const cls = sub.check ? (sub.dec[ch]===g?'ok':'no') : 'g'; html += `<span class="${cls}">${g.toLowerCase()}</span>`; }
+      else html += `<span class="u">${ch}</span>`;
+    } else html += esc(ch);
+  }
+  for (const c of Object.keys(sub.guess)){ set++; if (sub.dec[c]===sub.guess[c]) right++; }
+  $('#sText').innerHTML = html;
+  $('#sScore').innerHTML = sub.check ? `<b style="color:var(--pub)">${right}</b> von ${set} Zuordnungen richtig` : `${set} Zuordnungen gesetzt`;
+}
+$('#sNew').onclick = newSub;
+$('#sSuggest').onclick = () => { const order=[...A].sort((a,b)=>sub.cnt[idx(b)]-sub.cnt[idx(a)]); sub.guess={}; order.forEach((c,i)=>{ if (sub.cnt[idx(c)]>0) sub.guess[c]=DE_ORDER[i]; }); sub.check=false; renderSubMap(); renderSubText(); };
+$('#sCheck').onclick = () => { sub.check=true; renderSubMap(); renderSubText(); };
+$('#sClear').onclick = () => { sub.guess={}; sub.check=false; renderSubMap(); renderSubText(); };
+$('#sSolve').onclick = () => { sub.guess={}; [...A].forEach(c=>{ if (sub.cnt[idx(c)]>0) sub.guess[c]=sub.dec[c]; }); sub.check=true; renderSubMap(); renderSubText(); };
+
+/* ================= VIGENERE ================= */
+const vig = {};
+function vigenere(text, key, dir=1){
+  let j=0; return norm(text).replace(/[A-Z]/g, c => shiftCh(c, dir*idx(key[j++%key.length])));
+}
+function renderVig(){
+  let key = lettersOnly($('#vKey').value).slice(0,16); if (!key) key='A';
+  vig.key = key;
+  $('#vKeyInfo').innerHTML = `Verschiebungen: <span class="mono" style="color:var(--blue)">${[...key].map(idx).join(' · ')}</span>`;
+  const pl = lettersOnly(SAMPLE); vig.ct = vigenere(pl, key);
+  const n = 20, P=[...pl.slice(0,n)], K=P.map((_,i)=>key[i%key.length]), C=[...vig.ct.slice(0,n)];
+  $('#vTab').innerHTML = `<tr><td class="h">Klartext</td>${P.map(x=>`<td>${x}</td>`).join('')}<td>…</td></tr>
+    <tr class="k"><td class="h">Schlüssel</td>${K.map(x=>`<td>${x}</td>`).join('')}<td>…</td></tr>
+    <tr class="c"><td class="h">Geheimtext</td>${C.map(x=>`<td>${x}</td>`).join('')}<td>…</td></tr>`;
+  $('#vOut').textContent = vig.ct.match(/.{1,5}/g).join(' ');
+  freqChart($('#vChart'), $('#vChartL'), counts(vig.ct), 0, false);
+  resetVigAtk();
+}
+function ic(s){ const c=counts(s), N=s.length; if (N<2) return 0; let x=0; c.forEach(v=>x+=v*(v-1)); return x/(N*(N-1)); }
+function cols(s,L){ const o=Array.from({length:L},()=>''); for (let i=0;i<s.length;i++) o[i%L]+=s[i]; return o; }
+let vTimers=[];
+function resetVigAtk(){
+  vTimers.forEach(clearTimeout); vTimers=[];
+  ['#vs1','#vs2','#vs3'].forEach(s=>$(s).classList.remove('on'));
+  $('#icChart').innerHTML=''; $('#icLbl').innerHTML=''; $('#vs1r').textContent=''; $('#keyRev').innerHTML=''; $('#vPlain').textContent='';
+  $('#vAtk').disabled=false;
+}
+function vigAttack(){
+  resetVigAtk(); $('#vAtk').disabled=true;
+  const ct = vig.ct, MAXL=16, THR=0.058, TOP=0.09;
+  const ics = []; for (let L=1;L<=MAXL;L++){ const cs=cols(ct,L); ics.push(cs.reduce((a,c)=>a+ic(c),0)/L); }
+  const thr = Math.max(THR, 0.88*Math.max(...ics));
+  let Lfound = ics.findIndex(v=>v>=thr)+1; if (Lfound<=0) Lfound = ics.indexOf(Math.max(...ics))+1;
+  $('#vs1').classList.add('on');
+  const chart = $('#icChart');
+  chart.innerHTML = ics.map((v,i)=>`<div class="b" style="height:0" data-h="${Math.min(100,v/TOP*100)}" title="Länge ${i+1}: ${v.toFixed(4)}"></div>`).join('') +
+    `<div class="thr" style="bottom:${thr/TOP*100}%"><span>Schwelle: deutlich über Zufall</span></div>`;
+  $('#icLbl').innerHTML = ics.map((_,i)=>`<span>${i+1}</span>`).join('');
+  const bars = chart.querySelectorAll('.b');
+  bars.forEach((b,i)=> vTimers.push(setTimeout(()=>{ b.style.height=b.dataset.h+'%'; if (i+1===Lfound) b.classList.add('on'); }, 150*i)));
+  const t1 = 150*MAXL + 300;
+  vTimers.push(setTimeout(()=>{
+    $('#vs1r').className='status ok';
+    $('#vs1r').innerHTML = `Bei Länge <b>${Lfound}</b> springt der Wert zum ersten Mal deutlich hoch – Vielfache davon (${Lfound*2}${Lfound*3<=MAXL?', '+Lfound*3:''}) ebenfalls. Das Schlüsselwort hat also vermutlich <b>${Lfound}</b> Buchstaben.`;
+    $('#vs2').classList.add('on');
+    $('#keyRev').innerHTML = Array.from({length:Lfound},()=>'<span>?</span>').join('');
+  }, t1));
+  const cs = cols(ct, Lfound); const keyFound=[];
+  cs.forEach((c,i)=>{
+    const cnt = counts(c); let best=0, bs=Infinity;
+    for (let s=0;s<26;s++){ const v=chi(rot(cnt,s)); if (v<bs){ bs=v; best=s; } }
+    keyFound.push(A[best]);
+    vTimers.push(setTimeout(()=>{ const sp=$('#keyRev').children[i]; sp.textContent=A[best]; sp.classList.add('on'); }, t1+500+i*450));
+  });
+  vTimers.push(setTimeout(()=>{
+    $('#vs3').classList.add('on');
+    const k = keyFound.join('');
+    $('#vPlain').innerHTML = `<span style="color:var(--priv)">Schlüssel: ${k}</span><br>` + esc(vigenere(ct, k, -1).slice(0,400)) + ' …';
+    $('#vAtk').disabled=false;
+  }, t1+800+Lfound*450));
+}
+$('#vKey').oninput = renderVig;
+$('#vAtk').onclick = vigAttack; $('#vAtkReset').onclick = resetVigAtk;
+
+/* ================= XOR ================= */
+const xr = {};
+const bitsOf = b => b.toString(2).padStart(8,'0');
+const byteHTML = b => `<div class="byte">${[...bitsOf(b)].map(x=>`<span class="${x==='1'?'one':''}">${x}</span>`).join('')}</div>`;
+function asciiBytes(s){ return [...norm(s)].map(c=>c.charCodeAt(0)).filter(x=>x>=32&&x<127); }
+function renderXor(newKey){
+  const m = asciiBytes($('#xMsg').value).slice(0,6);
+  if (newKey || !xr.key || xr.key.length < m.length){ xr.key = crypto.getRandomValues(new Uint8Array(6)); }
+  const k = [...xr.key.slice(0,m.length)], c = m.map((b,i)=>b^k[i]), back = c.map((b,i)=>b^k[i]);
+  const show = b => (b>=33&&b<127)? String.fromCharCode(b) : '·';
+  const row = (cls,label,arr,chars) => `<tr class="${cls}"><td class="h">${label}</td>${arr.map((b,i)=>`<td><div class="ch">${chars?chars[i]:''}</div>${byteHTML(b)}</td>`).join('')}</tr>`;
+  $('#xTab').innerHTML =
+    row('', 'Nachricht', m, m.map(b=>String.fromCharCode(b))) +
+    row('key', 'Schlüssel (Zufall)', k) +
+    `<tr><td class="h" colspan="${m.length+1}" style="text-align:left;color:var(--gold);padding-top:4px">XOR ergibt ↓</td></tr>` +
+    row('ct', 'Geheimtext', c, c.map(show)) +
+    `<tr><td class="h" colspan="${m.length+1}" style="text-align:left;color:var(--pub);padding-top:4px">noch einmal XOR mit demselben Schlüssel ↓</td></tr>` +
+    row('', 'Zurück', back, back.map(b=>String.fromCharCode(b)));
+}
+$('#xMsg').oninput = () => renderXor(false); $('#xNewKey').onclick = () => renderXor(true);
+
+/* OTP game */
+const otp = {};
+const hex = arr => [...arr].map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+function initOTP(){
+  otp.msg = asciiBytes('PREMIERE IST ABGESAGT'); otp.L = otp.msg.length;
+  otp.key = crypto.getRandomValues(new Uint8Array(otp.L));
+  otp.ct = otp.msg.map((b,i)=>b^otp.key[i]);
+  $('#oCt').textContent = hex(otp.ct); renderOTP();
+}
+function renderOTP(){
+  let g = asciiBytes($('#oGuess').value);
+  $('#oLen').innerHTML = g.length===otp.L ? '<span style="color:var(--pub)">21 Zeichen ✓</span>' : `${g.length} Zeichen – wird ${g.length<otp.L?'mit Leerzeichen aufgefüllt':'gekürzt'}`;
+  g = g.slice(0,otp.L); while (g.length<otp.L) g.push(32);
+  const k = g.map((b,i)=>b^otp.ct[i]);
+  $('#oKey').innerHTML = hex(k) + `<br><span class="small">Probe: Geheimtext XOR dieser Schlüssel = <b style="color:var(--text)">${esc(String.fromCharCode(...g))}</b>. Genauso plausibel wie jede andere Nachricht.</span>`;
+}
+$('#oGuess').oninput = renderOTP;
+$('#oReveal').onclick = () => { $('#oReal').className='status ok'; $('#oReal').innerHTML = `Tatsächlich: <b class="mono">${String.fromCharCode(...otp.msg)}</b> – aber das konnte der Angreifer nicht wissen.`; };
+
+/* ================= AES ================= */
+const aes = { key: crypto.getRandomValues(new Uint8Array(16)), prev:null, prevText:null };
+const hasSubtle = !!(window.crypto && crypto.subtle);
+function block16(s){ const b = asciiBytes(s).slice(0,16); while (b.length<16) b.push(32); return new Uint8Array(b); }
+async function aesBlock(pt){
+  const k = await crypto.subtle.importKey('raw', aes.key, 'AES-CBC', false, ['encrypt']);
+  const ct = await crypto.subtle.encrypt({name:'AES-CBC', iv:new Uint8Array(16)}, k, pt);
+  return new Uint8Array(ct).slice(0,16);
+}
+const toBits = arr => [...arr].map(bitsOf).join('');
+async function renderAES(reason){
+  const text = String.fromCharCode(...block16($('#aIn').value));
+  // Caesar comparison
+  const cNow = caesar(text,3), cPrev = aes.prevText!=null ? caesar(aes.prevText,3) : cNow;
+  let chg=0; const hl = [...cNow].map((c,i)=>{ const d = c!==cPrev[i]; if (d) chg++; return d?`<span style="color:var(--priv);text-decoration:underline">${esc(c)}</span>`:esc(c); }).join('');
+  $('#aCaesar').innerHTML = `<span style="color:var(--dim)">${esc(cPrev)}</span><br>${hl}`;
+  $('#aCaesarInfo').innerHTML = reason==='key' ? 'Bei Caesar gibt es nur 25 Schlüssel – ein „gekipptes Bit“ gibt es da nicht.' : `${chg} von 16 Zeichen geändert – der Rest bleibt stehen und verrät Struktur.`;
+  if (!hasSubtle){ $('#aNoCrypto').style.display='block'; return; }
+  const ct = await aesBlock(block16(text));
+  const now = toBits(ct), before = aes.prev ? toBits(aes.prev) : now;
+  let diff=0;
+  $('#aGrid').innerHTML = [...now].map((b,i)=>{ const d=b!==before[i]; if(d) diff++; return `<span class="${b==='1'?'one':''}${d?' ch':''}"></span>`; }).join('');
+  $('#aInfo').innerHTML = aes.prev ? `<b style="color:var(--priv)">${diff} von 128 Bit</b> haben sich geändert (rot umrandet)${reason==='key'?' – durch ein einziges Bit im Schlüssel':''}. Ideal wären im Schnitt 64.` : 'Ändern Sie ein Zeichen oder kippen Sie ein Schlüsselbit.';
+  aes.prev = ct; aes.prevText = text;
+}
+$('#aIn').oninput = () => renderAES('text');
+$('#aFlip').onclick = () => { const i=rnd(128); aes.key[i>>3] ^= (1<<(i&7)); renderAES('key'); };
+$('#aNewKey').onclick = () => { aes.key = crypto.getRandomValues(new Uint8Array(16)); aes.prev=null; renderAES('key'); };
+
+/* ================= VERGLEICH ================= */
+function lfact(n){ let s=0; for (let i=2;i<=n;i++) s+=Math.log10(i); return s; }
+const CMP = [
+  ['Caesar', Math.log10(25), 'Ausprobieren oder Buchstaben zählen – Sekunden'],
+  ['Vigenère, 5 Buchstaben', 5*Math.log10(26), 'Koinzidenzindex + Zählen – Sekundenbruchteile'],
+  ['Vigenère, 12 Buchstaben', 12*Math.log10(26), 'ebenso – die Länge hilft kaum'],
+  ['Substitution', lfact(26), 'Häufigkeitsanalyse – Minuten, von Hand'],
+  ['DES (56 Bit, Standard 1977–2002)', 56*Math.log10(2), '1998 Spezialrechner „Deep Crack“: 56 Std.; 1999 mit Freiwilligen: 22 Std.'],
+  ['AES-128 (Digitales Kino)', 128*Math.log10(2), 'kein praktikabler Angriff bekannt', true],
+  ['AES-256', 256*Math.log10(2), 'kein praktikabler Angriff bekannt'],
+];
+function bench(){
+  const btn=$('#bench'); btn.disabled=true; $('#benchInfo').textContent='misst …';
+  setTimeout(()=>{
+    const ct = lettersOnly(SAMPLE).slice(0,30); let n=0; const t0=performance.now(); let sink=0;
+    while (performance.now()-t0 < 700){
+      for (let r=0;r<500;r++){
+        const key=[rnd(26),rnd(26),rnd(26),rnd(26),rnd(26)];
+        const c=new Array(26).fill(0);
+        for (let i=0;i<ct.length;i++) c[(idx(ct[i])-key[i%5]+26)%26]++;
+        sink += chi(c);
+      }
+      n+=500;
+    }
+    const rate = n/((performance.now()-t0)/1000);
+    btn.disabled=false; btn.textContent='Erneut messen';
+    $('#benchInfo').innerHTML = `Dieser Rechner testet <b style="color:var(--gold)">${de(rate)}</b> Schlüssel pro Sekunde (ein Prozessorkern)${sink<0?'':''}`;
+    fillCmp(rate);
+  }, 30);
+}
+function fillCmp(rate){
+  const minL=-3, maxL=70, pos=L=>Math.max(0,Math.min(100,(L-minL)/(maxL-minL)*100));
+  const uni = LOG_UNIVERSE+LOG_YEAR;
+  const tb = $('#cmp tbody'); tb.innerHTML='';
+  CMP.forEach(([name,L,how,hl])=>{
+    const t1 = L - Math.log10(rate), t2 = t1-9;
+    const keys = L<6 ? de(Math.round(10**L)) : bigWords(L);
+    const tr=document.createElement('tr'); if (hl) tr.className='hl';
+    tr.innerHTML = `<td><b>${name}</b></td><td class="m">${keys}</td><td>${humanTime(t1)}</td><td>${humanTime(t2)}</td>
+      <td><div class="bar"><div style="width:${pos(t1)}%"></div><i style="left:${pos(uni)}%"></i></div></td><td class="small">${how}</td>`;
+    tb.appendChild(tr);
+  });
+  tb.insertAdjacentHTML('beforeend', `<tr><td><b>One-Time-Pad</b></td><td class="m">so viele wie mögliche Nachrichten</td><td colspan="3" class="small">Ausprobieren ist sinnlos: Jeder Schlüssel liefert eine andere, gleich plausible Nachricht.</td><td class="small">beweisbar unknackbar – bei korrekter Anwendung</td></tr>`);
+  $('#cmp').style.display='table'; $('#cmpNote').style.display='block';
+}
+$('#bench').onclick = bench;
+
+/* ---------- init ---------- */
+renderCaesar(); newSub(); renderVig(); renderXor(true); initOTP(); renderAES('text');
+</script>
+</body>
+</html>
