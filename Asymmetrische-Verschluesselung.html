@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Das Schloss, das jeder zudrücken kann – RSA im Digitalen Kino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12121f; --bg2:#1a1a2e; --panel:#16213e; --panel2:#1d2a4d; --line:#2c3a62;
+  --text:#e8e6f0; --muted:#a3a8c3; --dim:#6f7699;
+  --gold:#f5c26b; --pub:#4fd1a5; --priv:#ff7a8a; --warn:#ffb454; --blue:#7fb2ff;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#26254a 0%,transparent 60%),var(--bg);color:var(--text);font:18px/1.6 var(--sans)}
+a{color:var(--gold)}
+nav{position:sticky;top:0;z-index:10;background:rgba(18,18,31,.88);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .in{max-width:1080px;margin:auto;display:flex;gap:6px;align-items:center;padding:10px 20px;overflow-x:auto}
+nav .brand{font-family:var(--serif);font-weight:600;margin-right:auto;white-space:nowrap;color:var(--gold)}
+nav a{color:var(--muted);text-decoration:none;font-size:15px;padding:6px 12px;border-radius:999px;white-space:nowrap}
+nav a:hover{background:var(--panel);color:var(--text)}
+main{max-width:1080px;margin:auto;padding:0 20px 80px}
+header.hero{padding:72px 0 40px}
+.kicker{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600}
+h1{font-family:var(--serif);font-size:clamp(36px,5.4vw,62px);line-height:1.06;margin:.25em 0 .35em;font-weight:700}
+h2{font-family:var(--serif);font-size:clamp(30px,3.6vw,42px);line-height:1.15;margin:0 0 .4em;font-weight:600}
+h3{font-family:var(--serif);font-size:26px;margin:0 0 .5em;font-weight:600}
+h4{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 .6em;font-weight:600}
+.lead{font-size:21px;color:#cfd2e6;max-width:780px}
+section.part{padding-top:56px}
+.partlabel{display:inline-block;font-size:14px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:3px 12px;border-radius:999px;margin-bottom:12px}
+.card{background:linear-gradient(180deg,var(--panel),#141c35);border:1px solid var(--line);border-radius:18px;padding:28px;margin:22px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.note{border-left:3px solid var(--gold);background:rgba(245,194,107,.07);padding:14px 18px;border-radius:0 12px 12px 0;margin:18px 0;color:#ddd9e8}
+.note.warn{border-color:var(--warn);background:rgba(255,180,84,.08)}
+.note.pubn{border-color:var(--pub);background:rgba(79,209,165,.07)}
+.note.privn{border-color:var(--priv);background:rgba(255,122,138,.07)}
+details{margin:14px 0;color:var(--muted)}
+details summary{cursor:pointer;color:var(--blue);font-size:16px}
+details[open] summary{margin-bottom:8px}
+.small{font-size:15px;color:var(--muted)}
+.mono{font-family:var(--mono)}
+button{font:600 16px var(--sans);border:0;border-radius:12px;padding:12px 20px;cursor:pointer;background:var(--gold);color:#1a1a2e;transition:transform .08s,opacity .2s}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.35;cursor:not-allowed;transform:none}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.pub{background:var(--pub)}
+button.priv{background:var(--priv)}
+button.bad{background:transparent;border:1px dashed var(--priv);color:var(--priv)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0}
+input[type=text],select{font:16px var(--mono);background:#0f1530;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:11px 14px}
+input[type=text]{min-width:240px}
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 16px}
+.chip{font:600 16px var(--mono);min-width:46px;text-align:center;padding:8px 10px;border-radius:10px;background:#0f1530;border:1px solid var(--line);color:var(--muted);cursor:pointer;user-select:none}
+.chip:hover{border-color:var(--gold);color:var(--text)}
+.chip.sel{background:var(--gold);color:#1a1a2e;border-color:var(--gold)}
+.chip.off{opacity:.25;pointer-events:none}
+/* steps */
+.steps{counter-reset:s;display:grid;gap:12px;margin-top:10px}
+.step{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start;background:#0f1530;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.step .num{counter-increment:s;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);color:var(--gold);font-weight:700;font-family:var(--serif)}
+.step .num::before{content:counter(s)}
+.step b.v{font-family:var(--mono);font-size:22px;color:var(--gold)}
+.step p{margin:.2em 0 0;color:#cdd0e3}
+/* key cards */
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+@media(max-width:700px){.keys{grid-template-columns:1fr}}
+.key{border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.key.pub{background:linear-gradient(135deg,rgba(79,209,165,.18),rgba(79,209,165,.04));border:1px solid rgba(79,209,165,.5)}
+.key.priv{background:linear-gradient(135deg,rgba(255,122,138,.18),rgba(255,122,138,.04));border:1px solid rgba(255,122,138,.5)}
+.key .t{font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase}
+.key.pub .t{color:var(--pub)} .key.priv .t{color:var(--priv)}
+.key .vals{font:600 24px var(--mono);margin-top:8px}
+.key .sub{font-size:15px;color:var(--muted);margin-top:6px}
+.key svg{position:absolute;right:14px;top:14px;opacity:.85}
+/* big numbers */
+.big{font:13px/1.5 var(--mono);word-break:break-all;background:#0b1027;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:150px;overflow:auto;color:#cfd6f5}
+.big.pubb{border-color:rgba(79,209,165,.45)} .big.privb{border-color:rgba(255,122,138,.45)}
+.biglabel{display:flex;justify-content:space-between;gap:12px;margin:16px 0 6px;font-size:15px}
+.biglabel .cnt{color:var(--gold);font-family:var(--mono);white-space:nowrap}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:16px}
+th{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid rgba(44,58,98,.6);vertical-align:middle}
+td.m{font-family:var(--mono)}
+.crypt td.ltr{font:700 24px var(--mono);color:var(--text)}
+.crypt td.c{font:600 20px var(--mono);color:var(--gold)}
+.crypt td.ok{color:var(--pub)} .crypt td.no{color:var(--priv)}
+.crypt .same{outline:2px solid var(--warn);outline-offset:-2px;border-radius:6px}
+.fade{animation:fade .45s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.status{font-size:16px;margin-top:10px;min-height:1.6em}
+.status.ok{color:var(--pub)} .status.err{color:var(--priv)}
+.pill{display:inline-block;font:600 13px var(--mono);padding:3px 10px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+/* attack */
+.tchips{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0}
+.tc{font:600 15px var(--mono);min-width:40px;padding:7px 8px;text-align:center;border-radius:8px;background:#0f1530;border:1px solid var(--line);color:var(--dim)}
+.tc.test{background:var(--warn);color:#1a1a2e;border-color:var(--warn)}
+.tc.no{color:#4a5070;text-decoration:line-through}
+.tc.hit{background:var(--pub);color:#0d2a20;border-color:var(--pub);transform:scale(1.15)}
+.attacklog{font:16px var(--mono);color:#cdd0e3;min-height:1.6em}
+.reveal{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+@media(max-width:820px){.reveal{grid-template-columns:1fr 1fr}}
+.rv{background:#0f1530;border:1px solid var(--line);border-radius:14px;padding:14px;opacity:.25;transition:opacity .4s}
+.rv.on{opacity:1;border-color:var(--priv)}
+.rv .l{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.rv .v{font:700 22px var(--mono);color:var(--priv);margin-top:4px;word-break:break-all}
+.prog{height:12px;background:#0b1027;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.prog>div{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--warn));transition:width .2s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+@media(max-width:820px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:#0f1530;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat .l{font-size:13px;color:var(--muted)}
+.stat .v{font:600 19px var(--mono);color:var(--text);margin-top:2px}
+.bar{position:relative;height:14px;background:#0b1027;border-radius:99px;min-width:140px;border:1px solid var(--line)}
+.bar>div{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,var(--pub),var(--gold) 40%,var(--priv))}
+.bar>i{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;opacity:.7}
+tr.hl td{background:rgba(245,194,107,.07)}
+tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+.figure{background:#0f1530;border:1px solid var(--line);border-radius:18px;padding:18px;margin:22px 0}
+.figure svg{width:100%;height:auto;display:block}
+.take{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:820px){.take{grid-template-columns:1fr}}
+.take div{background:#0f1530;border:1px solid var(--line);border-radius:14px;padding:18px}
+.take b{display:block;font-family:var(--serif);font-size:20px;color:var(--gold);margin-bottom:6px}
+footer{border-top:1px solid var(--line);margin-top:60px;padding-top:24px;font-size:14px;color:var(--muted)}
+footer li{margin:4px 0}
+</style>
+</head>
+<body>
+<nav><div class="in">
+  <span class="brand">RSA im Digitalen Kino</span>
+  <a href="#idee">Die Idee</a>
+  <a href="#teil1">Teil 1 · So funktioniert’s</a>
+  <a href="#teil2">Teil 2 · Wie sicher?</a>
+  <a href="#fazit">Fazit</a>
+</div></nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">Digitales Kino · Begleitseite zum Skript</div>
+  <h1>Das Schloss, das jeder zudrücken&nbsp;kann</h1>
+  <p class="lead">Wie ein Filmverleih einen geheimen Schlüssel an tausende Kinos schickt – über E-Mail, offen für jeden Mitleser – und trotzdem nur der richtige Kinoserver ihn öffnen kann. Zum Ausprobieren, ohne Formeln.</p>
+</header>
+
+<!-- ============ IDEE ============ -->
+<section id="idee" class="part">
+  <h2>Die Idee: zwei verschiedene Schlüssel</h2>
+  <div class="grid2">
+    <div>
+      <p>Klassische Verschlüsselung funktioniert wie eine Haustür: <b>derselbe Schlüssel</b> schließt auf und zu. Das ist schnell und sicher – hat aber ein Problem: Wie bekommt das Kino diesen Schlüssel, ohne dass ihn unterwegs jemand kopiert?</p>
+      <p>Die <b>asymmetrische Verschlüsselung</b> löst das mit einem Trick, den man sich wie ein <b>offenes Vorhängeschloss</b> vorstellen kann:</p>
+      <ul>
+        <li>Das Kino verteilt offene Vorhängeschlösser an alle, die wollen – das ist der <b style="color:var(--pub)">öffentliche Schlüssel</b>.</li>
+        <li>Jeder kann damit eine Kiste <b>zudrücken</b>. Aufschließen kann er sie danach selbst nicht mehr.</li>
+        <li>Nur das Kino besitzt den passenden <b style="color:var(--priv)">privaten Schlüssel</b> und kann die Kiste öffnen.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h4 style="color:var(--gold)">Im Digitalen Kino</h4>
+      <p style="margin:.2em 0">Der Film im DCP ist mit <b>AES-128</b> verschlüsselt – einem schnellen „Haustür-Verfahren“. Der dazugehörige <b>Inhaltsschlüssel</b> reist getrennt im <b>KDM</b> (Key Delivery Message).</p>
+      <p style="margin:.6em 0 .2em">Im KDM ist der Inhaltsschlüssel mit dem <b style="color:var(--pub)">öffentlichen RSA-Schlüssel</b> eines ganz bestimmten Kinoservers (Media Block) verschlossen. Den <b style="color:var(--priv)">privaten Schlüssel</b> kennt nur dessen Sicherheitschip – er verlässt das Gerät nie.</p>
+    </div>
+  </div>
+
+  <div class="figure">
+    <svg viewBox="0 0 1000 290" role="img" aria-label="Ablauf: Verleih verschließt Inhaltsschlüssel mit öffentlichem Schlüssel des Kinos, KDM reist offen, Kino öffnet mit privatem Schlüssel">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#a3a8c3"/></marker>
+      </defs>
+      <!-- Verleih -->
+      <rect x="10" y="40" width="240" height="150" rx="16" fill="#16213e" stroke="#2c3a62"/>
+      <text x="130" y="72" text-anchor="middle" fill="#f5c26b" font-family="Fraunces" font-size="22" font-weight="600">Verleih / Mastering</text>
+      <text x="130" y="104" text-anchor="middle" fill="#e8e6f0" font-family="Inter" font-size="15">hat den Inhaltsschlüssel</text>
+      <rect x="85" y="118" width="90" height="34" rx="8" fill="#f5c26b"/>
+      <text x="130" y="141" text-anchor="middle" fill="#1a1a2e" font-family="JetBrains Mono" font-size="14" font-weight="600">AES-Key</text>
+      <text x="130" y="178" text-anchor="middle" fill="#4fd1a5" font-family="Inter" font-size="14">+ öffentl. Schlüssel Kino A</text>
+      <!-- KDM -->
+      <line x1="255" y1="115" x2="375" y2="115" stroke="#a3a8c3" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="315" y="102" text-anchor="middle" fill="#a3a8c3" font-family="Inter" font-size="13">zudrücken</text>
+      <rect x="380" y="40" width="240" height="150" rx="16" fill="#16213e" stroke="#4fd1a5" stroke-dasharray="6 5"/>
+      <text x="500" y="72" text-anchor="middle" fill="#e8e6f0" font-family="Fraunces" font-size="22" font-weight="600">KDM</text>
+      <g transform="translate(470,88)">
+        <path d="M14 26 V16 a16 16 0 0 1 32 0 V26" fill="none" stroke="#4fd1a5" stroke-width="5"/>
+        <rect x="4" y="24" width="52" height="40" rx="7" fill="#4fd1a5"/>
+        <circle cx="30" cy="42" r="5" fill="#16213e"/><rect x="28" y="44" width="4" height="11" fill="#16213e"/>
+      </g>
+      <text x="500" y="178" text-anchor="middle" fill="#a3a8c3" font-family="Inter" font-size="14">reist offen per E-Mail</text>
+      <!-- Kino -->
+      <line x1="625" y1="115" x2="745" y2="115" stroke="#a3a8c3" stroke-width="2" marker-end="url(#ar)"/>
+      <rect x="750" y="40" width="240" height="150" rx="16" fill="#16213e" stroke="#2c3a62"/>
+      <text x="870" y="72" text-anchor="middle" fill="#f5c26b" font-family="Fraunces" font-size="22" font-weight="600">Kino A · Server</text>
+      <text x="870" y="104" text-anchor="middle" fill="#ff7a8a" font-family="Inter" font-size="15">privater Schlüssel im Chip</text>
+      <rect x="825" y="118" width="90" height="34" rx="8" fill="#f5c26b"/>
+      <text x="870" y="141" text-anchor="middle" fill="#1a1a2e" font-family="JetBrains Mono" font-size="14" font-weight="600">AES-Key</text>
+      <text x="870" y="178" text-anchor="middle" fill="#e8e6f0" font-family="Inter" font-size="14">→ Film entschlüsseln</text>
+      <!-- DCP path -->
+      <path d="M130 200 V250 H870 V200" fill="none" stroke="#6f7699" stroke-width="2" stroke-dasharray="3 6" marker-end="url(#ar)"/>
+      <text x="500" y="275" text-anchor="middle" fill="#a3a8c3" font-family="Inter" font-size="14">Der Film selbst (DCP, AES-verschlüsselt) kommt getrennt – per Festplatte, Satellit oder Download</text>
+      <text x="500" y="225" text-anchor="middle" fill="#ff7a8a" font-family="Inter" font-size="14">Kino B, ein Lauscher oder ein Dieb der Festplatte: können den KDM nicht öffnen</text>
+    </svg>
+  </div>
+  <p class="small">Warum nicht gleich den ganzen Film mit RSA verschlüsseln? RSA ist sehr langsam und kann pro Durchgang nur ein paar hundert Byte verarbeiten. Deshalb gilt das Prinzip der Arbeitsteilung: <b>AES</b> für die Terabyte an Bild und Ton, <b>RSA</b> nur für den kleinen Schlüssel.</p>
+</section>
+
+<!-- ============ TEIL 1 ============ -->
+<section id="teil1" class="part">
+  <span class="partlabel">Teil 1</span>
+  <h2>Ein Schlüsselpaar entsteht</h2>
+  <p class="lead">RSA beruht auf einer einzigen Beobachtung: <b>Zwei Zahlen zu multiplizieren ist kinderleicht. Das Ergebnis wieder in seine beiden Teile zu zerlegen, ist extrem schwer.</b></p>
+
+  <!-- 1a mini -->
+  <div class="card" id="mini">
+    <h3>1 · Ein Spielzeug-Schlüsselpaar</h3>
+    <p>Wählen Sie zwei <b>Primzahlen</b> – also Zahlen, die sich nur durch 1 und sich selbst teilen lassen. Sie sind das Geheimnis, aus dem beide Schlüssel entstehen.</p>
+    <h4>Erste Primzahl</h4><div class="chips" id="pChips"></div>
+    <h4>Zweite Primzahl</h4><div class="chips" id="qChips"></div>
+    <div class="steps" id="miniSteps"></div>
+    <div class="keys" id="miniKeys"></div>
+    <details><summary>Für Neugierige: Wie werden die beiden Zahlen e und d gefunden?</summary>
+      <p class="small">Man rechnet (p − 1) · (q − 1) aus und sucht eine kleine Zahl e, die mit diesem Wert keinen gemeinsamen Teiler hat. Dann sucht man d so, dass e · d genau 1 mehr ergibt als ein Vielfaches davon. Entscheidend ist: Für beides braucht man p und q. Wer nur n kennt, kann d nicht ausrechnen.</p>
+    </details>
+  </div>
+
+  <!-- 1b real -->
+  <div class="card" id="real">
+    <h3>2 · Ein echtes Schlüsselpaar – so groß wie im Kino</h3>
+    <p>Kinoserver nach DCI-Spezifikation verwenden RSA-Schlüssel mit <b>2048 Bit</b>. Ihr Browser kann ein solches Paar jetzt erzeugen – nach genau demselben Prinzip, nur mit gigantischen Primzahlen.</p>
+    <div class="row"><button id="genReal">Echtes 2048-Bit-Schlüsselpaar erzeugen</button><span class="small" id="genInfo"></span></div>
+    <div id="realOut" style="display:none">
+      <div class="steps" style="margin-top:18px">
+        <div class="step"><div class="num"></div><div>Der Rechner würfelt große Zufallszahlen und prüft so lange, bis er zwei Primzahlen gefunden hat.
+          <div class="biglabel"><span>Erste Primzahl p <span class="pill">geheim</span></span><span class="cnt" id="pCnt"></span></div><div class="big privb" id="pBig"></div>
+          <div class="biglabel"><span>Zweite Primzahl q <span class="pill">geheim</span></span><span class="cnt" id="qCnt"></span></div><div class="big privb" id="qBig"></div>
+        </div></div>
+        <div class="step"><div class="num"></div><div>Multiplizieren ergibt n – den gemeinsamen Teil beider Schlüssel. Ausgedruckt wäre das etwa eine halbe Buchseite voller Ziffern.
+          <div class="biglabel"><span>n = p × q <span class="pill" style="color:var(--pub)">öffentlich</span></span><span class="cnt" id="nCnt"></span></div><div class="big pubb" id="nBig"></div>
+        </div></div>
+        <div class="step"><div class="num"></div><div>Die Zahl für das Schloss: Fast alle Systeme weltweit nehmen dieselbe, <b class="v">e = 65.537</b>. Das ist kein Geheimnis und kein Problem – die Sicherheit steckt allein in n.</div></div>
+        <div class="step"><div class="num"></div><div>Die Zahl für den Schlüssel, ausgerechnet mithilfe von p und q:
+          <div class="biglabel"><span>d <span class="pill">geheim</span></span><span class="cnt" id="dCnt"></span></div><div class="big privb" id="dBig"></div>
+        </div></div>
+      </div>
+      <details><summary>So sieht der öffentliche Schlüssel als Datei aus (PEM-Format, wie im Zertifikat eines Media Blocks)</summary>
+        <div class="big pubb" id="pem" style="max-height:260px;white-space:pre"></div>
+      </details>
+    </div>
+    <div class="note warn" id="noCrypto" style="display:none">Dieser Browser stellt die Web-Crypto-Schnittstelle hier nicht zur Verfügung. Bitte die Seite direkt (nicht eingebettet) in einem aktuellen Browser öffnen.</div>
+  </div>
+
+  <h2 style="margin-top:56px">Verschließen und wieder öffnen</h2>
+
+  <!-- 1c mini crypt -->
+  <div class="card">
+    <h3>3 · Mit dem Spielzeugschlüssel</h3>
+    <p>Jeder Buchstabe wird zu einer Zahl (A = 10, B = 11 … Z = 35, Leerzeichen = 36). Diese Zahl wird mit dem <b style="color:var(--pub)">öffentlichen Schlüssel</b> in eine Geheimzahl verwandelt – und nur der <b style="color:var(--priv)">private Schlüssel</b> verwandelt sie zurück.</p>
+    <div class="row">
+      <input type="text" id="miniMsg" value="KINO" maxlength="16" aria-label="Nachricht">
+      <button class="pub" id="miniEnc">🔒 Verschlüsseln</button>
+      <button class="priv" id="miniDec" disabled>🔑 Entschlüsseln</button>
+      <button class="bad" id="miniWrong" disabled>Mit falschem Schlüssel versuchen</button>
+    </div>
+    <div id="miniKeyHint" class="small"></div>
+    <div style="overflow-x:auto"><table class="crypt" id="miniTable"></table></div>
+    <div class="status" id="miniStatus"></div>
+    <details><summary>Was passiert bei „verschlüsseln“ eigentlich?</summary>
+      <p class="small">Die Zahl wird e-mal mit sich selbst malgenommen. Vom riesigen Ergebnis behält man nur den Rest, der beim Teilen durch n übrig bleibt – wie ein Uhrzeiger, der nach n Stunden wieder von vorn beginnt. Beim Entschlüsseln passiert dasselbe mit d statt e. Dass man dabei exakt wieder am Ausgangspunkt landet, ist der mathematische Kern von RSA.</p>
+    </details>
+    <div class="note warn" id="sameNote" style="display:none"><b>Schwachstelle entdeckt:</b> Gleiche Buchstaben ergeben gleiche Geheimzahlen. Ein Lauscher könnte so Muster erkennen. Echte Systeme mischen deshalb vor dem Verschlüsseln Zufall bei (Verfahren „OAEP“) – das sehen Sie gleich im nächsten Abschnitt.</div>
+  </div>
+
+  <!-- 1d real crypt -->
+  <div class="card">
+    <h3>4 · Mit dem echten Schlüssel: ein KDM im Kleinen</h3>
+    <p>Szenario: Der Verleih möchte den <b>Inhaltsschlüssel</b> für den Film an den Server von <b>Kino A</b> schicken. Das ist der 2048-Bit-Schlüssel von oben.</p>
+    <div class="biglabel"><span>Inhaltsschlüssel (AES-128, 16 Byte)</span><button class="ghost" id="newCK" style="padding:6px 12px;font-size:14px">neu würfeln</button></div>
+    <div class="big" id="ckBox" style="font-size:18px;color:var(--gold)"></div>
+    <div class="row">
+      <button class="pub" id="realEnc" disabled>🔒 Mit öffentlichem Schlüssel von Kino A verschließen</button>
+    </div>
+    <div id="realEncOut" style="display:none">
+      <div class="biglabel"><span>Verschlüsselt – das steht im KDM</span><span class="cnt" id="ctCnt"></span></div>
+      <div class="big pubb" id="ctBox"></div>
+      <div id="ctPrevWrap" style="display:none">
+        <div class="biglabel"><span>Zum Vergleich: dieselbe Nachricht, beim vorigen Mal verschlüsselt</span><span class="cnt"></span></div>
+        <div class="big" id="ctPrev" style="opacity:.6"></div>
+        <p class="small">Völlig anders – obwohl derselbe Inhaltsschlüssel mit demselben Schlüssel verschlossen wurde. Das ist die eingebaute Zufallsbeimischung. Muster wie beim Spielzeug gibt es hier nicht.</p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="realEncAgain">Noch einmal verschlüsseln</button>
+        <button class="priv" id="realDec">🔑 Kino A öffnet mit privatem Schlüssel</button>
+        <button class="bad" id="realWrong">Kino B versucht es mit seinem Schlüssel</button>
+      </div>
+      <div class="status" id="realStatus"></div>
+    </div>
+    <p class="small" id="realHint">Bitte zuerst oben ein echtes Schlüsselpaar erzeugen.</p>
+  </div>
+</section>
+
+<!-- ============ TEIL 2 ============ -->
+<section id="teil2" class="part">
+  <span class="partlabel">Teil 2</span>
+  <h2>Wie sicher ist das?</h2>
+  <p class="lead">Ein Angreifer kennt alles, was öffentlich ist: den KDM und den öffentlichen Schlüssel – also <b>n</b> und <b>e</b>. Um den privaten Schlüssel nachzubauen, fehlen ihm nur die beiden Primzahlen. Er muss also <b>n in seine zwei Faktoren zerlegen</b>.</p>
+
+  <div class="card">
+    <h3>5 · Den Spielzeugschlüssel knacken</h3>
+    <p>Die einfachste Methode heißt <b>Probedivision</b>: Man probiert der Reihe nach jede Zahl aus, ob sie n ohne Rest teilt. Weiter als bis zur Wurzel von n muss man nicht suchen – spätestens dort muss die kleinere Primzahl auftauchen.</p>
+    <div class="note privn" id="intercept"></div>
+    <div class="row">
+      <button id="atkStart">Angriff starten</button>
+      <select id="atkSpeed" aria-label="Geschwindigkeit"><option value="700">langsam</option><option value="280" selected>mittel</option><option value="60">schnell</option></select>
+      <button class="ghost" id="atkReset">Zurücksetzen</button>
+    </div>
+    <div class="tchips" id="tchips"></div>
+    <div class="attacklog" id="atkLog"></div>
+    <div class="reveal">
+      <div class="rv" id="rv1"><div class="l">Gefunden</div><div class="v" id="rv1v">–</div></div>
+      <div class="rv" id="rv2"><div class="l">Zweite Primzahl</div><div class="v" id="rv2v">–</div></div>
+      <div class="rv" id="rv3"><div class="l">Privater Schlüssel d</div><div class="v" id="rv3v">–</div></div>
+      <div class="rv" id="rv4"><div class="l">Geheime Nachricht</div><div class="v" id="rv4v">–</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>6 · Etwas größer: Ihr Rechner gegen die Uhr</h3>
+    <p>Jetzt arbeitet Ihr Rechner selbst – so schnell er kann. Erzeugen Sie eine Zahl aus zwei zufälligen, gleich großen Primzahlen (wie bei RSA üblich) und lassen Sie ihn alle Möglichkeiten durchprobieren. Mit jeder zusätzlichen Ziffer wird es spürbar zäher.</p>
+    <div class="row">
+      <select id="digits" aria-label="Stellen">
+        <option value="8">8 Stellen</option><option value="10">10 Stellen</option><option value="12" selected>12 Stellen</option>
+        <option value="14">14 Stellen</option><option value="16">16 Stellen</option><option value="18">18 Stellen</option>
+        <option value="20">20 Stellen</option><option value="24">24 Stellen</option><option value="30">30 Stellen</option>
+      </select>
+      <button class="ghost" id="mkN">Zufallszahl erzeugen</button>
+      <input type="text" id="facN" aria-label="Zu zerlegende Zahl" placeholder="oder eigene Zahl eingeben">
+      <button id="facGo">Knacken starten</button>
+      <button class="bad" id="facStop" disabled>Abbrechen</button>
+    </div>
+    <div class="prog"><div id="facBar"></div></div>
+    <div class="stats">
+      <div class="stat"><div class="l">Versuche</div><div class="v" id="sTries">–</div></div>
+      <div class="stat"><div class="l">Laufzeit</div><div class="v" id="sTime">–</div></div>
+      <div class="stat"><div class="l">Versuche pro Sekunde</div><div class="v" id="sRate">–</div></div>
+      <div class="stat"><div class="l">Schlimmstenfalls noch</div><div class="v" id="sEta">–</div></div>
+    </div>
+    <div class="status" id="facStatus"></div>
+  </div>
+
+  <div class="card">
+    <h3>7 · Hochrechnung: alle Kombinationen für echte Schlüssel</h3>
+    <p>Wie lange bräuchte <b>dieser Rechner</b>, um mit Probedivision alle Möglichkeiten durchzuprobieren? Dazu wird zuerst gemessen, wie viele Probedivisionen er pro Sekunde mit Zahlen in echter Kinogröße schafft.</p>
+    <div class="row"><button id="bench">Geschwindigkeit messen</button><span class="small" id="benchInfo"></span></div>
+    <div style="overflow-x:auto"><table id="extTable" style="display:none">
+      <thead><tr><th>Schlüssel</th><th>Ziffern</th><th>Versuche</th><th>Dieser Rechner</th><th>1 Milliarde solcher Rechner</th><th style="min-width:160px">Zeitskala</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="small" id="extNote" style="display:none">Zeitskala logarithmisch. Weißer Strich = Alter des Universums (13,8 Milliarden Jahre). Ein Programm, das speziell auf Tempo optimiert ist, wäre vielleicht hundertmal schneller – das verschiebt die Werte nur um zwei Stellen und ändert am Bild nichts.</p>
+  </div>
+
+  <div class="card">
+    <h3>8 · Die klügeren Angreifer</h3>
+    <p>Probedivision ist die naivste Methode. Mathematiker haben deutlich raffiniertere Verfahren entwickelt; das beste heißt <b>Zahlkörpersieb</b>. Damit wurden in öffentlichen Wettbewerben immer größere Zahlen zerlegt – mit Großrechnern über Monate. Die Rechenleistung wird in <b>Kernjahren</b> angegeben: ein Prozessorkern, der ein Jahr lang rechnet.</p>
+    <div style="overflow-x:auto"><table id="nfsTable">
+      <thead><tr><th>Zahl</th><th>Bit</th><th>Status</th><th>Aufwand</th><th id="nfsMine">Auf Ihrem Rechner</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <p class="small">Messwerte laut den veröffentlichten Rekorden; die Werte für 1024 und 2048 Bit sind Hochrechnungen mit der bekannten Wachstumskurve des Zahlkörpersiebs ausgehend von RSA-250. Annahme für die letzte Spalte: Ein Kern Ihres Rechners ist etwa so schnell wie ein Server-Kern von 2020. Alle Schätzwerte sind nur Größenordnungen.</p>
+    <div class="note">Auch mit dem besten bekannten Verfahren bleibt ein 2048-Bit-Schlüssel außer Reichweite. Aber: Der Abstand ist von „10<sup>300</sup> Jahre“ auf „hunderte Millionen Jahre mit einer Million Kernen“ geschrumpft. <b>Fortschritt in der Mathematik ist die eigentliche Gefahr</b> – deshalb wachsen die empfohlenen Schlüssellängen mit der Zeit (512 → 1024 → 2048 Bit).</div>
+  </div>
+
+  <div class="grid2">
+    <div class="card" style="margin:0">
+      <h3>Und der Film selbst?</h3>
+      <p>Der Inhaltsschlüssel (AES-128) hat 2<sup>128</sup> Möglichkeiten – rund 340 Sextillionen. Für AES ist kein Abkürzungsverfahren bekannt; man müsste wirklich raten.</p>
+      <p class="small">Angenommen, eine Milliarde Spezialchips probieren je eine Milliarde Schlüssel pro Sekunde: Für alle Möglichkeiten bräuchten sie rund <b style="color:var(--gold)">10 Billionen Jahre</b> – etwa 780-mal das Alter des Universums.</p>
+    </div>
+    <div class="card" style="margin:0">
+      <h3>Wo es wirklich gefährlich wird</h3>
+      <p class="small"><b>Hardware:</b> Der private Schlüssel ist im Sicherheitschip des Media Blocks eingeschlossen; zertifizierte Geräte (FIPS 140-2) löschen ihn bei einem Manipulationsversuch. <b>Organisation:</b> KDMs gelten nur in einem Zeitfenster und nur für die gelisteten Geräte.</p>
+      <p class="small"><b>Ausblick Quantencomputer:</b> Ein ausreichend großer Quantencomputer könnte n mit dem Shor-Algorithmus effizient zerlegen. Solche Maschinen gibt es bislang nicht; wann es sie geben wird, ist umstritten. Das NIST hat 2024 erste Post-Quanten-Standards veröffentlicht, die gegen diesen Angriff gewappnet sind.</p>
+    </div>
+  </div>
+</section>
+
+<section id="fazit" class="part">
+  <h2>Drei Sätze zum Mitnehmen</h2>
+  <div class="take">
+    <div><b>Zwei Schlüssel</b>Was der öffentliche Schlüssel verschließt, öffnet nur der private. Den öffentlichen darf jeder kennen.</div>
+    <div><b>Leicht hin, schwer zurück</b>Zwei Primzahlen multiplizieren dauert Millisekunden – das Produkt wieder zerlegen dauert länger als das Universum alt ist.</div>
+    <div><b>Teamarbeit im Kino</b>AES verschlüsselt den Film, RSA verschickt im KDM nur den Schlüssel dazu – an genau einen Server.</div>
+  </div>
+</section>
+
+<footer>
+  <b>Quellen</b>
+  <ul>
+    <li>SMPTE ST 430-1: D-Cinema Operations – Key Delivery Message (RSA-OAEP, AES, X.509)</li>
+    <li>Boudot, Gaudry, Guillevic, Heninger, Thomé, Zimmermann: Factorization of RSA-250 (Feb. 2020), ca. 2700 Kernjahre auf Intel Xeon Gold 6130 · <a href="https://caramba.loria.fr/rsa250.txt">Ankündigung</a></li>
+    <li>RSA-260 (862 Bit), zerlegt im September 2026 · <a href="https://lilting.ch/en/articles/rsa-260-factored-how-computed">Übersicht zu den Rekorden</a></li>
+    <li>RSA-768: Kleinjung u. a. (Dez. 2009), knapp 2000 Jahre auf einem 2,2-GHz-Opteron-Kern</li>
+  </ul>
+  <p>Alle Berechnungen dieser Seite laufen lokal in Ihrem Browser. Die Spielzeugbeispiele verzichten bewusst auf die Zufallsbeimischung echter Systeme.</p>
+</footer>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const de = (x, f=0) => Number(x).toLocaleString('de-DE', {maximumFractionDigits:f, minimumFractionDigits:0});
+const PRIMES = [5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97];
+const gcd = (a,b) => { while(b){ [a,b]=[b,a%b]; } return a; };
+function modinv(a,m){ let r0=m,r1=a,t0=0,t1=1; while(r1){ const q=Math.floor(r0/r1); [r0,r1]=[r1,r0-q*r1]; [t0,t1]=[t1,t0-q*t1]; } return ((t0%m)+m)%m; }
+function modpow(b,e,m){ let r=1n, B=BigInt(b)%BigInt(m), E=BigInt(e); const M=BigInt(m); while(E>0n){ if(E&1n) r=r*B%M; B=B*B%M; E>>=1n; } return r; }
+
+/* ---------- time formatting (log10 based) ---------- */
+const LOG_YEAR = Math.log10(31557600), LOG_UNIVERSE = Math.log10(1.38e10);
+function bigWords(L){
+  if (L < 6) return de(Math.round(10**L));
+  if (L >= 27) return '10<sup>' + Math.floor(L) + '</sup>';
+  const names = [[24,'Quadrillionen'],[21,'Trilliarden'],[18,'Trillionen'],[15,'Billiarden'],[12,'Billionen'],[9,'Milliarden'],[6,'Millionen']];
+  for (const [k,nm] of names) if (L >= k){ const v = 10**(L-k); return de(v, v<10?1:0) + ' ' + nm; }
+}
+function humanTime(L, withUniverse=true){
+  if (L < -3) return 'unter 1 ms';
+  const s = 10**L;
+  if (s < 1) return de(s*1000) + ' ms';
+  if (s < 60) return de(s, s<10?1:0) + ' s';
+  if (s < 3600) return de(s/60, 1) + ' Min.';
+  if (s < 86400) return de(s/3600, 1) + ' Std.';
+  if (s < 31557600) return de(s/86400, s<864000?1:0) + ' Tage';
+  const Ly = L - LOG_YEAR;
+  let out = (Ly < 6 ? de(10**Ly, 10**Ly<10?1:0) : bigWords(Ly)) + ' Jahre';
+  if (withUniverse && Ly > LOG_UNIVERSE + 0.3) out += '<br><span class="small">≈ ' + bigWords(Ly - LOG_UNIVERSE) + '× Alter des Universums</span>';
+  return out;
+}
+
+/* ================= TEIL 1: MINI ================= */
+const mini = { p:7, q:11 };
+function computeMini(){
+  const {p,q} = mini; mini.n = p*q; mini.phi = (p-1)*(q-1);
+  let e = 3, d = 0;
+  for (const cand of [3,5,7,11,13,17,19,23,29,31,37]){
+    if (cand < mini.phi && gcd(cand, mini.phi) === 1){ const dd = modinv(cand, mini.phi); if (dd !== cand){ e = cand; d = dd; break; } }
+  }
+  mini.e = e; mini.d = d; mini.ok = mini.n > 36;
+}
+function renderChips(){
+  const mk = (el, which) => {
+    el.innerHTML = '';
+    PRIMES.forEach(x => {
+      const c = document.createElement('span');
+      c.className = 'chip' + (mini[which]===x?' sel':'') + ((which==='p'?mini.q:mini.p)===x?' off':'');
+      c.textContent = x;
+      c.onclick = () => { mini[which] = x; updateMini(); };
+      el.appendChild(c);
+    });
+  };
+  mk($('#pChips'),'p'); mk($('#qChips'),'q');
+}
+const lockSVG = c => `<svg width="38" height="44" viewBox="0 0 60 66"><path d="M14 28 V18 a16 16 0 0 1 32 0 V28" fill="none" stroke="${c}" stroke-width="6"/><rect x="4" y="26" width="52" height="38" rx="8" fill="${c}"/></svg>`;
+const keySVG = c => `<svg width="50" height="30" viewBox="0 0 80 40"><circle cx="18" cy="20" r="14" fill="none" stroke="${c}" stroke-width="7"/><path d="M32 20 H76 M64 20 V32 M54 20 V30" stroke="${c}" stroke-width="7" fill="none"/></svg>`;
+function updateMini(){
+  computeMini(); renderChips();
+  const {p,q,n,e,d} = mini;
+  $('#miniSteps').innerHTML = `
+    <div class="step fade"><div class="num"></div><div>Zwei geheime Primzahlen: <b class="v">${p}</b> und <b class="v">${q}</b></div></div>
+    <div class="step fade"><div class="num"></div><div>Multiplizieren: ${p} × ${q} = <b class="v">${n}</b>
+      <p>Diese Zahl <b>n</b> steckt in beiden Schlüsseln. Sie darf öffentlich sein.</p></div></div>
+    <div class="step fade"><div class="num"></div><div>Eine kleine Zahl für das Schloss: <b class="v">e = ${e}</b>
+      <p>Sie muss rechnerisch zu den beiden Primzahlen „passen“.</p></div></div>
+    <div class="step fade"><div class="num"></div><div>Die passende Zahl für den Schlüssel: <b class="v">d = ${d}</b>
+      <p>Um sie auszurechnen, braucht man ${p} und ${q}. Wer nur ${n} kennt, muss die beiden erst wiederfinden – darum geht es in Teil 2.</p></div></div>
+    <div class="step fade"><div class="num"></div><div>Die Primzahlen ${p} und ${q} werden vergessen. Übrig bleiben zwei Schlüssel:</div></div>`;
+  $('#miniKeys').innerHTML = `
+    <div class="key pub fade">${lockSVG('#4fd1a5')}<div class="t">Öffentlicher Schlüssel</div><div class="vals">n = ${n} · e = ${e}</div><div class="sub">darf jeder haben – zum Verschließen</div></div>
+    <div class="key priv fade">${keySVG('#ff7a8a')}<div class="t">Privater Schlüssel</div><div class="vals">n = ${n} · d = ${d}</div><div class="sub">bleibt beim Kino – zum Öffnen</div></div>`;
+  if (!mini.ok) $('#miniKeys').insertAdjacentHTML('beforeend', `<div class="note warn" style="grid-column:1/-1">n = ${n} ist zu klein für unser Alphabet (wir brauchen Zahlen bis 36). Bitte mindestens eine größere Primzahl wählen.</div>`);
+  $('#miniKeyHint').innerHTML = `Aktuelle Schlüssel: <span style="color:var(--pub)">öffentlich (${n}, ${e})</span> · <span style="color:var(--priv)">privat (${n}, ${d})</span>`;
+  $('#miniEnc').disabled = !mini.ok;
+  mini.cipher = null; mini.plain = null; $('#miniTable').innerHTML=''; $('#miniStatus').textContent=''; $('#sameNote').style.display='none';
+  $('#miniDec').disabled = true; $('#miniWrong').disabled = true;
+  resetAttack();
+}
+const enc = ch => ch===' ' ? 36 : ch.charCodeAt(0) - 55;
+const decCh = v => v===36 ? '␣' : (v>=10 && v<=35 ? String.fromCharCode(v+55) : '?');
+function normalize(t){ return t.toUpperCase().replace(/Ä/g,'AE').replace(/Ö/g,'OE').replace(/Ü/g,'UE').replace(/ß/g,'SS').replace(/[^A-Z ]/g,'').slice(0,16); }
+function miniTableHead(){
+  return `<tr><th>Buchstabe</th><th>Zahl</th><th style="color:var(--pub)">🔒 Geheimzahl</th><th style="color:var(--priv)">🔑 zurückgerechnet</th><th>Buchstabe</th></tr>`;
+}
+function miniEncrypt(){
+  const txt = normalize($('#miniMsg').value || 'KINO'); $('#miniMsg').value = txt;
+  if (!txt.trim()) return;
+  mini.plain = txt;
+  mini.cipher = [...txt].map(ch => Number(modpow(enc(ch), mini.e, mini.n)));
+  const t = $('#miniTable'); t.innerHTML = miniTableHead();
+  const counts = {}; mini.cipher.forEach(c => counts[c]=(counts[c]||0)+1);
+  [...txt].forEach((ch,i) => {
+    const tr = document.createElement('tr'); tr.className='fade'; tr.style.animationDelay = (i*70)+'ms';
+    const same = counts[mini.cipher[i]]>1 ? ' same' : '';
+    tr.innerHTML = `<td class="ltr">${ch===' '?'␣':ch}</td><td class="m">${enc(ch)}</td><td class="c${same}">${mini.cipher[i]}</td><td class="m" data-d></td><td class="ltr" data-l></td>`;
+    t.appendChild(tr);
+  });
+  $('#sameNote').style.display = Object.values(counts).some(v=>v>1) ? 'block' : 'none';
+  $('#miniStatus').className='status'; $('#miniStatus').innerHTML = `Ein Lauscher sieht nur: <span class="mono" style="color:var(--gold)">${mini.cipher.join(' · ')}</span>`;
+  $('#miniDec').disabled = false; $('#miniWrong').disabled = false;
+  updateIntercept();
+}
+function miniDecrypt(wrong){
+  if (!mini.cipher) return;
+  let dKey = mini.d;
+  if (wrong){ do { dKey = 2 + Math.floor(Math.random()*(mini.phi-2)); } while (dKey === mini.d); }
+  const rows = $('#miniTable').querySelectorAll('tr');
+  const out = [];
+  mini.cipher.forEach((c,i) => {
+    const v = Number(modpow(c, dKey, mini.n)); const L = decCh(v); out.push(L);
+    const r = rows[i+1]; const dd = r.querySelector('[data-d]'), ll = r.querySelector('[data-l]');
+    dd.textContent = v; ll.textContent = L; ll.className = 'ltr ' + (wrong?'no':'ok') + ' fade'; dd.className = 'm fade'; ll.style.animationDelay = dd.style.animationDelay = (i*70)+'ms';
+  });
+  const s = $('#miniStatus');
+  if (wrong){ s.className='status err'; s.innerHTML = `Mit einer falschen Zahl (d = ${dKey}) kommt nur Unsinn heraus: <b class="mono">${out.join('')}</b>`; }
+  else { s.className='status ok'; s.innerHTML = `Mit dem privaten Schlüssel (d = ${mini.d}) ist die Nachricht wieder da: <b class="mono">${out.join('')}</b>`; }
+}
+$('#miniEnc').onclick = miniEncrypt;
+$('#miniDec').onclick = () => miniDecrypt(false);
+$('#miniWrong').onclick = () => miniDecrypt(true);
+$('#miniMsg').addEventListener('keydown', e => { if (e.key==='Enter') miniEncrypt(); });
+
+/* ================= TEIL 1: REAL ================= */
+const real = {};
+const hasSubtle = !!(window.crypto && crypto.subtle);
+function b64uToBig(s){ s = s.replace(/-/g,'+').replace(/_/g,'/'); while (s.length%4) s+='='; const bin = atob(s); let h=''; for (let i=0;i<bin.length;i++) h += bin.charCodeAt(i).toString(16).padStart(2,'0'); return BigInt('0x'+h); }
+const toHex = buf => [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+function abToB64(buf){ let s=''; new Uint8Array(buf).forEach(b=> s+=String.fromCharCode(b)); return btoa(s); }
+const ALG = {name:'RSA-OAEP', modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:'SHA-256'};
+async function genReal(){
+  if (!hasSubtle){ $('#noCrypto').style.display='block'; return; }
+  const btn = $('#genReal'); btn.disabled = true; $('#genInfo').textContent = 'Suche Primzahlen …';
+  const t0 = performance.now();
+  try {
+    real.kp = await crypto.subtle.generateKey(ALG, true, ['encrypt','decrypt']);
+    const ms = performance.now()-t0;
+    const jwk = await crypto.subtle.exportKey('jwk', real.kp.privateKey);
+    const show = (id, cid, v) => { const s = v.toString(); $(id).textContent = s; $(cid).textContent = de(s.length) + ' Ziffern · ' + v.toString(2).length + ' Bit'; };
+    show('#pBig','#pCnt', b64uToBig(jwk.p)); show('#qBig','#qCnt', b64uToBig(jwk.q));
+    show('#nBig','#nCnt', b64uToBig(jwk.n)); show('#dBig','#dCnt', b64uToBig(jwk.d));
+    const spki = await crypto.subtle.exportKey('spki', real.kp.publicKey);
+    $('#pem').textContent = '-----BEGIN PUBLIC KEY-----\n' + abToB64(spki).match(/.{1,64}/g).join('\n') + '\n-----END PUBLIC KEY-----';
+    $('#realOut').style.display='block';
+    $('#genInfo').innerHTML = `fertig in <b style="color:var(--gold)">${de(ms)} ms</b> – nochmal klicken ergibt ein völlig neues Paar`;
+    $('#realEnc').disabled = false; $('#realHint').style.display='none';
+    real.kpB = null; real.ct = null; real.prev = null; $('#realEncOut').style.display='none';
+  } catch(err){ $('#genInfo').textContent = 'Fehler: ' + err.message; }
+  btn.disabled = false; btn.textContent = 'Neues Schlüsselpaar erzeugen';
+}
+function newCK(){ real.ck = crypto.getRandomValues(new Uint8Array(16)); $('#ckBox').textContent = toHex(real.ck); real.prev=null; real.ct=null; $('#realEncOut').style.display='none'; $('#realStatus').textContent=''; }
+async function realEncrypt(){
+  if (!real.kp) return;
+  real.prev = real.ct;
+  real.ct = await crypto.subtle.encrypt({name:'RSA-OAEP'}, real.kp.publicKey, real.ck);
+  $('#ctBox').textContent = toHex(real.ct); $('#ctCnt').textContent = real.ct.byteLength + ' Byte';
+  $('#ctBox').classList.remove('fade'); void $('#ctBox').offsetWidth; $('#ctBox').classList.add('fade');
+  if (real.prev){ $('#ctPrev').textContent = toHex(real.prev); $('#ctPrevWrap').style.display='block'; } else $('#ctPrevWrap').style.display='none';
+  $('#realEncOut').style.display='block'; $('#realStatus').textContent='';
+}
+async function realDecrypt(wrong){
+  const s = $('#realStatus');
+  try {
+    let key = real.kp.privateKey;
+    if (wrong){
+      if (!real.kpB){ s.className='status'; s.textContent='Kino B erzeugt erst einmal sein eigenes Schlüsselpaar …'; real.kpB = await crypto.subtle.generateKey(ALG, true, ['encrypt','decrypt']); }
+      key = real.kpB.privateKey;
+    }
+    const pt = await crypto.subtle.decrypt({name:'RSA-OAEP'}, key, real.ct);
+    const same = toHex(pt) === toHex(real.ck);
+    s.className = 'status ' + (same?'ok':'err');
+    s.innerHTML = `Entschlüsselt: <b class="mono">${toHex(pt)}</b><br>${same ? '✓ Identisch mit dem Inhaltsschlüssel – Kino A kann den Film abspielen.' : 'Abweichung!'}`;
+  } catch(err){
+    s.className='status err';
+    s.innerHTML = '✗ Entschlüsselung verweigert. Mit dem privaten Schlüssel von Kino B lässt sich dieser KDM nicht öffnen – nicht einmal ein falsches Ergebnis kommt heraus.';
+  }
+}
+$('#genReal').onclick = genReal;
+$('#newCK').onclick = newCK;
+$('#realEnc').onclick = realEncrypt;
+$('#realEncAgain').onclick = realEncrypt;
+$('#realDec').onclick = () => realDecrypt(false);
+$('#realWrong').onclick = () => realDecrypt(true);
+
+/* ================= TEIL 2: MINI ATTACK ================= */
+let atkTimer = null;
+function interceptCipher(){
+  if (mini.cipher) return {plainKnown:true, c:mini.cipher};
+  const txt = 'KINO'; return {plainKnown:false, c:[...txt].map(ch => Number(modpow(enc(ch), mini.e, mini.n)))};
+}
+function updateIntercept(){
+  const ic = interceptCipher();
+  $('#intercept').innerHTML = `<b>Was der Angreifer abgefangen hat:</b> öffentlicher Schlüssel <span class="mono" style="color:var(--pub)">n = ${mini.n}, e = ${mini.e}</span> und die Geheimzahlen <span class="mono" style="color:var(--gold)">${ic.c.join(' · ')}</span>` + (mini.cipher ? '' : ' <span class="small">(Beispielnachricht – in Abschnitt 3 können Sie eine eigene verschlüsseln)</span>');
+}
+function resetAttack(){
+  clearInterval(atkTimer); atkTimer=null;
+  const lim = Math.floor(Math.sqrt(mini.n));
+  const box = $('#tchips'); box.innerHTML='';
+  for (let k=2;k<=lim;k++){ const c=document.createElement('span'); c.className='tc'; c.textContent=k; c.dataset.k=k; box.appendChild(c); }
+  $('#atkLog').innerHTML = `Zu prüfen: alle Zahlen von 2 bis ${lim} (Wurzel aus ${mini.n} ≈ ${de(Math.sqrt(mini.n),1)})`;
+  for (let i=1;i<=4;i++){ $('#rv'+i).classList.remove('on'); $('#rv'+i+'v').textContent='–'; }
+  $('#atkStart').disabled=false;
+  updateIntercept();
+}
+function startAttack(){
+  if (atkTimer) return;
+  if (!mini.ok){ $('#atkLog').textContent='Bitte oben zuerst ein gültiges Schlüsselpaar wählen.'; return; }
+  resetAttack(); $('#atkStart').disabled = true;
+  const chips = [...document.querySelectorAll('#tchips .tc')]; let i=0;
+  const speed = +$('#atkSpeed').value;
+  atkTimer = setInterval(() => {
+    if (i>0) chips[i-1].classList.replace('test','no');
+    const c = chips[i]; const k = +c.dataset.k; c.classList.add('test');
+    const r = mini.n / k;
+    if (mini.n % k === 0){
+      clearInterval(atkTimer); atkTimer=null;
+      c.classList.replace('test','hit');
+      $('#atkLog').innerHTML = `Teste ${k}: ${mini.n} ÷ ${k} = <b style="color:var(--pub)">${r}</b> → geht auf! Nach ${i+1} Versuchen gefunden.`;
+      revealAttack(k, r);
+    } else {
+      $('#atkLog').innerHTML = `Teste ${k}: ${mini.n} ÷ ${k} = ${de(r,2)} → geht nicht auf`;
+      i++;
+      if (i>=chips.length){ clearInterval(atkTimer); atkTimer=null; }
+    }
+  }, speed);
+}
+function revealAttack(p, q){
+  const phi=(p-1)*(q-1), d = modinv(mini.e, phi);
+  const ic = interceptCipher();
+  const msg = ic.c.map(c => decCh(Number(modpow(c, d, mini.n)))).join('');
+  const steps = [[1, p], [2, q], [3, d], [4, msg]];
+  steps.forEach(([n,v],j) => setTimeout(() => { $('#rv'+n).classList.add('on'); $('#rv'+n+'v').textContent = v; }, 500 + j*650));
+  setTimeout(() => { $('#atkLog').insertAdjacentHTML('beforeend', `<br><span style="color:var(--priv)">Mit ${p} und ${q} rechnet der Angreifer Schritt 4 aus Teil 1 nach – und besitzt den privaten Schlüssel.</span>`); $('#atkStart').disabled=false; }, 500+4*650);
+}
+$('#atkStart').onclick = startAttack;
+$('#atkReset').onclick = resetAttack;
+
+/* ================= TEIL 2: WORKER ================= */
+const workerSrc = `
+function isqrt(n){ if(n<2n) return n; let x=n, y=(x+1n)/2n; while(y<x){ x=y; y=(x+n/x)/2n; } return x; }
+onmessage = (ev) => {
+  const m = ev.data;
+  if (m.cmd==='factor') factor(BigInt(m.n));
+  if (m.cmd==='bench') bench();
+};
+function factor(n){
+  const t0 = performance.now(); let last = t0;
+  if (n < 4n){ postMessage({type:'prime', tries:0, ms:0}); return; }
+  if (n % 2n === 0n){ postMessage({type:'done', p:'2', q:(n/2n).toString(), tries:1, ms:performance.now()-t0}); return; }
+  const lim = isqrt(n), limN = Number(lim);
+  let tries = 0;
+  if (n <= 9007199254740991n){
+    const N = Number(n);
+    for (let d=3; d<=limN; d+=2){
+      tries++;
+      if (N % d === 0){ postMessage({type:'done', p:String(d), q:String(N/d), tries, ms:performance.now()-t0}); return; }
+      if ((tries & 0x3FFFF) === 0){ const now=performance.now(); if (now-last>150){ last=now; postMessage({type:'progress', d, lim:limN, tries, ms:now-t0}); } }
+    }
+  } else {
+    for (let d=3n; d<=lim; d+=2n){
+      tries++;
+      if (n % d === 0n){ postMessage({type:'done', p:d.toString(), q:(n/d).toString(), tries, ms:performance.now()-t0}); return; }
+      if ((tries & 0xFFFF) === 0){ const now=performance.now(); if (now-last>150){ last=now; postMessage({type:'progress', d:Number(d), lim:limN, tries, ms:now-t0}); } }
+    }
+  }
+  postMessage({type:'prime', tries, ms:performance.now()-t0});
+}
+function rndBig(bits){ const bytes = new Uint8Array(bits/8); crypto.getRandomValues(bytes); let h=''; bytes.forEach(b=>h+=b.toString(16).padStart(2,'0')); return BigInt('0x'+h) | (1n<<BigInt(bits-1)) | 1n; }
+function bench(){
+  const n = rndBig(2048); let d = rndBig(1024); let c = 0, x = 0n;
+  const t0 = performance.now();
+  while (performance.now()-t0 < 900){ for (let i=0;i<2000;i++){ x ^= n % d; d += 2n; } c += 2000; }
+  postMessage({type:'bench', rate: c/((performance.now()-t0)/1000), x: Number(x & 1n)});
+}`;
+const workerURL = URL.createObjectURL(new Blob([workerSrc], {type:'text/javascript'}));
+let facWorker = null;
+
+/* random semiprime with Miller-Rabin */
+function mrPrime(n){
+  if (n < 2n) return false;
+  for (const p of [2n,3n,5n,7n,11n,13n,17n,19n,23n,29n,31n,37n,41n]){ if (n===p) return true; if (n%p===0n) return false; }
+  let d=n-1n, s=0; while((d&1n)===0n){ d>>=1n; s++; }
+  for (const a of [2n,3n,5n,7n,11n,13n,17n,19n,23n,29n,31n,37n,41n]){
+    let x = modpow(a,d,n); if (x===1n || x===n-1n) continue;
+    let comp = true; for (let r=1;r<s;r++){ x = x*x%n; if (x===n-1n){ comp=false; break; } }
+    if (comp) return false;
+  }
+  return true;
+}
+function randPrime(digits){
+  const lo = 10n**BigInt(digits-1), span = 9n*lo;
+  while (true){
+    const r = crypto.getRandomValues(new Uint32Array(4)); let v = 0n; r.forEach(x => v = (v<<32n) + BigInt(x));
+    let c = lo + v % span; if (c%2n===0n) c+=1n;
+    if (mrPrime(c)) return c;
+  }
+}
+function makeN(){
+  const D = +$('#digits').value; let n;
+  do { n = randPrime(D/2) * randPrime(D/2); } while (n.toString().length !== D);
+  $('#facN').value = n.toString();
+  $('#facStatus').className='status'; $('#facStatus').innerHTML = `Neue Zahl mit ${D} Stellen – das Produkt wurde in Sekundenbruchteilen berechnet. Jetzt der umgekehrte Weg …`;
+  resetFacStats();
+}
+function resetFacStats(){ ['#sTries','#sTime','#sRate','#sEta'].forEach(s => $(s).textContent='–'); $('#facBar').style.width='0'; }
+function stopFac(msg){
+  if (facWorker){ facWorker.terminate(); facWorker=null; }
+  $('#facGo').disabled=false; $('#facStop').disabled=true; $('#mkN').disabled=false;
+  if (msg){ $('#facStatus').className='status err'; $('#facStatus').innerHTML = msg; }
+}
+function startFac(){
+  const raw = ($('#facN').value||'').replace(/[^0-9]/g,'');
+  if (!raw || raw.length < 2){ makeN(); }
+  const nStr = ($('#facN').value||'').replace(/[^0-9]/g,'');
+  if (nStr.length > 40){ $('#facStatus').className='status err'; $('#facStatus').textContent='Bitte höchstens 40 Stellen – darüber würde selbst der Fortschrittsbalken nicht sichtbar wachsen.'; return; }
+  $('#facN').value = nStr;
+  resetFacStats(); $('#facGo').disabled=true; $('#facStop').disabled=false; $('#mkN').disabled=true;
+  $('#facStatus').className='status'; $('#facStatus').textContent='Ihr Rechner probiert …';
+  facWorker = new Worker(workerURL);
+  facWorker.onmessage = ev => {
+    const m = ev.data;
+    if (m.type==='progress'){
+      const rate = m.tries / (m.ms/1000);
+      const remainingTries = Math.max(0,(m.lim - m.d)/2);
+      $('#sTries').textContent = de(m.tries); $('#sTime').innerHTML = humanTime(Math.log10(m.ms/1000), false);
+      $('#sRate').textContent = de(rate); $('#sEta').innerHTML = humanTime(Math.log10(Math.max(remainingTries/rate,1e-4)), false);
+      $('#facBar').style.width = Math.min(100, 100*m.d/m.lim).toFixed(2)+'%';
+    } else if (m.type==='done' || m.type==='prime'){
+      $('#sTries').textContent = de(m.tries); $('#sTime').innerHTML = humanTime(Math.log10(Math.max(m.ms,0.01)/1000), false);
+      $('#sRate').textContent = m.ms>5 ? de(m.tries/(m.ms/1000)) : '–'; $('#sEta').textContent = '0'; $('#facBar').style.width='100%';
+      const s = $('#facStatus');
+      if (m.type==='done'){ s.className='status ok'; s.innerHTML = `Geknackt: <b class="mono">${de(nStr.length)}</b>-stellige Zahl = <b class="mono">${m.p}</b> × <b class="mono">${m.q}</b>`; }
+      else { s.className='status'; s.innerHTML = 'Diese Zahl ist selbst eine Primzahl – sie lässt sich nicht zerlegen und taugt nicht als RSA-n.'; }
+      stopFac();
+    }
+  };
+  facWorker.postMessage({cmd:'factor', n:nStr});
+}
+$('#mkN').onclick = makeN;
+$('#facGo').onclick = startFac;
+$('#facStop').onclick = () => stopFac('Abgebrochen. Hochgerechnet steht oben, wie lange es schlimmstenfalls noch gedauert hätte.');
+
+/* ================= TEIL 2: EXTRAPOLATION ================= */
+const ROWS = [
+  [16,'Spielzeug'],[32,''],[64,''],[128,''],[256,''],[512,'Anfang der 2000er noch üblich'],
+  [1024,'bis ca. 2010 Standard'],[2048,'Digitales Kino heute',true],[4096,'']
+];
+function runBench(){
+  const b = $('#bench'); b.disabled = true; $('#benchInfo').textContent = 'misst etwa eine Sekunde …';
+  const w = new Worker(workerURL);
+  w.onmessage = ev => { if (ev.data.type!=='bench') return; w.terminate(); b.disabled=false; b.textContent='Erneut messen'; fillExt(ev.data.rate); };
+  w.postMessage({cmd:'bench'});
+}
+function fillExt(rate){
+  $('#benchInfo').innerHTML = `Dieser Rechner: <b style="color:var(--gold)">${de(rate)}</b> Probedivisionen pro Sekunde (mit 2048-Bit-Zahlen, ein Prozessorkern)`;
+  const tb = $('#extTable tbody'); tb.innerHTML='';
+  const maxL = 320, minL = -3, pos = L => Math.max(0, Math.min(100, (L-minL)/(maxL-minL)*100));
+  const uniL = LOG_UNIVERSE + LOG_YEAR;
+  ROWS.forEach(([bits,label,hl]) => {
+    const logTries = (bits/2 - 1) * Math.log10(2);
+    const L1 = logTries - Math.log10(rate), L2 = L1 - 9;
+    const tr = document.createElement('tr'); if (hl) tr.className='hl';
+    const tries = logTries < 6 ? de(Math.round(10**logTries)) : (logTries<27 ? bigWords(logTries) : '10<sup>'+Math.floor(logTries)+'</sup>');
+    tr.innerHTML = `<td><b>${bits} Bit</b>${label?'<br><span class="small">'+label+'</span>':''}</td>
+      <td class="m">${de(Math.round(bits*Math.log10(2)))}</td><td class="m">${tries}</td>
+      <td>${humanTime(L1)}</td><td>${humanTime(L2)}</td>
+      <td><div class="bar"><div style="width:${pos(L1)}%"></div><i style="left:${pos(uniL)}%"></i></div></td>`;
+    tb.appendChild(tr);
+  });
+  $('#extTable').style.display='table'; $('#extNote').style.display='block';
+}
+$('#bench').onclick = runBench;
+
+/* ================= TEIL 2: NFS ================= */
+function nfsL(bits){ const ln = bits*Math.LN2; return 1.923 * Math.cbrt(ln) * Math.pow(Math.log(ln), 2/3); }
+function coreYearsEst(bits){ return 2700 * Math.exp(nfsL(bits) - nfsL(829)); }
+function fillNFS(){
+  const cores = navigator.hardwareConcurrency || 8;
+  $('#nfsMine').textContent = `Ihr Rechner (${cores} Kerne)`;
+  const rows = [
+    ['RSA-768', 768, 'zerlegt Dez. 2009', 2000, true],
+    ['RSA-240', 795, 'zerlegt Nov. 2019', 900, true],
+    ['RSA-250', 829, 'zerlegt Feb. 2020', 2700, true],
+    ['RSA-260', 862, 'zerlegt Sept. 2026 (aktueller Rekord)', null, true],
+    ['1024 Bit', 1024, 'ungeknackt – Hochrechnung', coreYearsEst(1024), false],
+    ['2048 Bit', 2048, 'ungeknackt – Hochrechnung', coreYearsEst(2048), false, true],
+  ];
+  const tb = $('#nfsTable tbody');
+  rows.forEach(([name,bits,status,cy,meas,hl]) => {
+    const tr = document.createElement('tr'); if (hl) tr.className='hl';
+    let aufw = '–', mine = '–';
+    if (cy){ const Ly = Math.log10(cy); const r2 = meas ? cy : Number(cy.toPrecision(2)); aufw = (meas?'ca. ':'≈ ') + (Ly<6 ? de(r2) : bigWords(Math.log10(r2))) + ' Kernjahre'; mine = humanTime(Math.log10(meas?cy:Number(cy.toPrecision(2))) + LOG_YEAR - Math.log10(cores)); }
+    else aufw = 'nicht veröffentlicht';
+    tr.innerHTML = `<td><b>${name}</b></td><td class="m">${bits}</td><td>${status}</td><td>${aufw}</td><td>${mine}</td>`;
+    tb.appendChild(tr);
+  });
+  const big = coreYearsEst(2048);
+  tb.insertAdjacentHTML('beforeend', `<tr><td colspan="5" class="small">Zum Vergleich für 2048 Bit: Selbst mit <b>einer Million</b> Kernen wären es noch ≈ ${humanTime(Math.log10(big/1e6)+LOG_YEAR, false)}.</td></tr>`);
+}
+
+/* ---------- init ---------- */
+updateMini();
+if (hasSubtle) newCK(); else { $('#noCrypto').style.display='block'; $('#genReal').disabled = true; $('#ckBox').textContent='–'; }
+fillNFS();
+</script>
+</body>
+</html>
