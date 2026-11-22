@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wavelet-Zerlegung im Kino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: sachlich, wie ein Messgerät im Grading-Raum – klar, lehrend.
+   IDEA: ein Messplatz, der das Bild Schritt für Schritt in Teilbänder zerlegt und wieder zusammensetzt.
+   PICTURE: großes Vorher → Nachher mit Operator-Pfeil, darunter der Ablauf als U-Kette von Miniaturen.
+   COLOUR and TYPE: Stahl #d5dbe0, Schwarz, Weiß, Signalrot #e8251a; nachts #16191c. Inter Tight + Inter.
+   LAYOUT: Steuerleiste oben, Vorher/Nachher dominant, Ablaufkette, dann Filter und Kino-Fakten. */
+:root{color-scheme:light dark;--bg:light-dark(#d5dbe0,#16191c);--panel:light-dark(#eef1f3,#20252a);--ink:light-dark(#0c0e10,#eef1f3);--mute:light-dark(#4b545c,#9aa5ae);--line:light-dark(#b5bec6,#343b42);--red:#e8251a}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,16px);max-width:1320px;margin:auto}
+h1,h2{font-family:"Inter Tight",Inter,sans-serif;line-height:1.05;text-wrap:balance;margin:0 0 .4em}
+h1{font-size:clamp(28px,4vw,44px)}h2{font-size:22px}
+p{max-width:70ch;margin:.3em 0 .8em}.mute{color:var(--mute)}
+.ctl{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.ctl label{display:flex;flex-direction:column;font-size:13px;color:var(--mute);gap:4px}
+select,button,input[type=file]::file-selector-button{font:inherit;font-size:16px;min-height:44px;border-radius:8px;border:1px solid var(--line);background:light-dark(#fff,#2a3036);color:var(--ink);padding:0 12px;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+button.pri{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+input[type=range]{width:130px;accent-color:var(--red);min-height:44px}
+input[type=file]{font-size:14px;max-width:260px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 150px minmax(0,1fr);gap:12px;align-items:center;margin-top:16px}
+.pane{background:#000;border-radius:8px;overflow:hidden;position:relative}
+.pane canvas{display:block;width:100%;height:auto}
+.cap{font-size:13px;color:var(--mute);margin:6px 2px 0;display:flex;justify-content:space-between;gap:8px}
+.op{text-align:center}.op svg{width:100%;height:60px}
+.op b{display:block;font-family:"Inter Tight";font-size:17px;line-height:1.2}
+.op span{font-size:13px;color:var(--mute);display:block;line-height:1.35;margin-top:4px}
+.desc{background:var(--panel);border-left:4px solid var(--red);border-radius:6px;padding:10px 14px;margin-top:14px}
+.chain{overflow-x:auto;padding:6px 2px 10px}
+.row{display:flex;align-items:center;gap:4px;width:max-content}
+.row+.row{margin-top:6px}
+.lab{font-size:13px;font-weight:600;width:84px;flex:none}
+.th{flex:none;width:92px;cursor:pointer;border:2px solid transparent;border-radius:6px;padding:2px;background:none;min-height:0}
+.th canvas{display:block;width:100%;border-radius:3px}
+.th small{display:block;font-size:11px;color:var(--mute);text-align:center;line-height:1.3;white-space:nowrap}
+.th.on{border-color:var(--red)}
+.ar{flex:none;width:18px;text-align:center;color:var(--mute);font-weight:700}
+.turn{color:var(--red)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}th:first-child,td:first-child{text-align:left}
+.err{font-weight:600}
+@media(max-width:760px){.stage{grid-template-columns:minmax(0,1fr)}.op svg{transform:rotate(90deg);height:50px}.grid2{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div class="band">
+<h1>Wie JPEG 2000 ein Kinobild in Teilbänder zerlegt</h1>
+<p class="mute">Jeder Schritt filtert erst die Zeilen (Tiefpass | Hochpass), dann die Spalten. Nur das Tiefpassbild LL wird weiter zerlegt. Danach läuft alles rückwärts und setzt das Bild wieder zusammen.</p>
+
+<div class="ctl">
+ <label>Bild<input type="file" id="file" accept="image/*"></label>
+ <label>Wavelet<select id="wl">
+  <option value="w97">CDF 9/7 – irreversibel (DCI)</option>
+  <option value="w53">LeGall 5/3 – reversibel</option>
+  <option value="haar">Haar (2 Taps)</option></select></label>
+ <label>Zerlegungsstufen<select id="lv">
+  <option>1</option><option>2</option><option>3</option><option>4</option>
+  <option value="5" selected>5 – DCI 2K</option><option value="6">6 – DCI 4K</option></select></label>
+ <label>Farbe<select id="col"><option value="rgb">3 Komponenten</option><option value="y">nur Luminanz</option></select></label>
+ <label>Detailverstärkung <input type="range" id="gain" min="1" max="16" step="0.5" value="4"></label>
+ <div style="display:flex;gap:8px;margin-left:auto"><button id="prev" aria-label="Schritt zurück">◀</button>
+ <button id="play" class="pri">▶ Abspielen</button>
+ <button id="next" aria-label="Schritt vor">▶</button></div>
+</div>
+
+<div class="stage">
+ <div><div class="pane"><canvas id="cA"></canvas></div><div class="cap"><span>Vorher</span><span id="capA"></span></div></div>
+ <div class="op"><svg viewBox="0 0 150 60"><defs><marker id="m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#e8251a"/></marker></defs><line x1="8" y1="30" x2="138" y2="30" stroke="#e8251a" stroke-width="4" marker-end="url(#m)"/></svg><b id="opT"></b><span id="opS"></span></div>
+ <div><div class="pane"><canvas id="cB"></canvas></div><div class="cap"><span>Nachher</span><span id="capB"></span></div></div>
+</div>
+<div class="desc" id="desc"></div>
+
+<h2 style="margin-top:26px">Ablauf</h2>
+<div class="chain" id="chain"></div>
+<p class="mute" style="font-size:13px">Auf eine Miniatur klicken springt zu diesem Schritt. Pfeiltasten ← → funktionieren auch.</p>
+</div>
+
+<div class="band grid2">
+ <div class="card"><h2>Die Filter</h2>
+  <p>Analyse-Filterkoeffizienten (symmetrisch, Mitte zuerst). Tiefpass mit DC-Verstärkung 1, Hochpass mit Verstärkung 2 bei Nyquist – die Konvention von JPEG 2000.</p>
+  <div id="taps"></div>
+  <p class="mute" style="font-size:13px;margin-top:10px">Gerechnet wird mit Lifting: wenige Vorhersage- und Update-Schritte statt Faltung. Beim 5/3 wird nach jedem Schritt ganzzahlig gerundet – deshalb ist es exakt umkehrbar.</p>
+ </div>
+ <div class="card"><h2>Im Digitalen Kino</h2>
+  <p>Ein DCP speichert jedes Bild als JPEG-2000-Codestream (Part 1), jede der drei X′Y′Z′-Komponenten getrennt. DCI schreibt das <b>irreversible 9/7-Wavelet</b> vor: 2K mit höchstens 5, 4K mit höchstens 6 Zerlegungsstufen.</p>
+  <p>Weil die Teilbänder hierarchisch liegen, kann ein 2K-Projektor aus einem 4K-DCP einfach die feinste Stufe weglassen – das LL nach Stufe 1 <em>ist</em> schon das 2K-Bild.</p>
+  <p>Das 5/3 ist das verlustfreie Gegenstück (Archiv, IMF-Masters). Haar ist das einfachste Wavelet überhaupt – Mittelwert und Differenz – und zeigt das Prinzip am deutlichsten, aber mit Blockartefakten.</p>
+  <p class="mute" style="font-size:13px">Vereinfachungen hier: keine Quantisierung, keine Entropiecodierung, Bildgröße auf ein Vielfaches von 64 Pixeln beschnitten.</p>
+  <p>Rekonstruktionsfehler (max. Abweichung): <span class="err" id="rerr">–</span></p>
+ </div>
+</div>
+
+<script>
+const WL=(()=>{
+const A=-1.586134342059924,B=-0.052980118572961,G=0.882911075530934,D=0.443506852043971;
+function lift97(s,d,n,dir,cL,cH){const m=n>>1;
+ const sp=i=>s[i<m?i:m-1],dm=i=>d[i<0?0:i];
+ const P=(c)=>{for(let i=0;i<m;i++)d[i]+=c*(s[i]+sp(i+1));};
+ const U=(c)=>{for(let i=m-1;i>=0;i--)s[i]+=c*(dm(i-1)+d[i]);};
+ if(dir>0){P(A);U(B);P(G);U(D);for(let i=0;i<m;i++){s[i]*=cL;d[i]*=cH;}}
+ else{for(let i=0;i<m;i++){s[i]/=cL;d[i]/=cH;}
+  for(let i=0;i<m;i++)s[i]-=D*(dm(i-1)+d[i]);
+  for(let i=0;i<m;i++)d[i]-=G*(s[i]+sp(i+1));
+  for(let i=0;i<m;i++)s[i]-=B*(dm(i-1)+d[i]);
+  for(let i=0;i<m;i++)d[i]-=A*(s[i]+sp(i+1));}
+}
+// raw normalisation: DC gain of low = 1, Nyquist gain of high = 2 (JPEG 2000 convention)
+let cL=1,cH=1;{const n=32,s=new Float64Array(16),d=new Float64Array(16);
+ s.fill(1);d.fill(1);lift97(s,d,n,1,1,1);cL=1/s[8];
+ for(let i=0;i<16;i++){s[i]=1;d[i]=-1;}lift97(s,d,n,1,1,1);cH=-2/d[8];}
+const f=Math.floor;
+const K={
+ haar:{fwd(x,n,o){const m=n>>1;for(let i=0;i<m;i++){const a=x[2*i],b=x[2*i+1];o[i]=(a+b)/2;o[m+i]=b-a;}},
+       inv(y,n,o){const m=n>>1;for(let i=0;i<m;i++){const s=y[i],d=y[m+i];o[2*i]=s-d/2;o[2*i+1]=s+d/2;}}},
+ w53:{fwd(x,n,o){const m=n>>1,d=new Float64Array(m);
+       for(let i=0;i<m;i++){const r=2*i+2<n?x[2*i+2]:x[n-2];d[i]=x[2*i+1]-f((x[2*i]+r)/2);}
+       for(let i=0;i<m;i++){o[i]=x[2*i]+f(((i?d[i-1]:d[0])+d[i]+2)/4);o[m+i]=d[i];}},
+      inv(y,n,o){const m=n>>1;
+       for(let i=0;i<m;i++){const dl=i?y[m+i-1]:y[m];o[2*i]=y[i]-f((dl+y[m+i]+2)/4);}
+       for(let i=0;i<m;i++){const r=2*i+2<n?o[2*i+2]:o[n-2];o[2*i+1]=y[m+i]+f((o[2*i]+r)/2);}}},
+ w97:{fwd(x,n,o){const m=n>>1,s=new Float64Array(m),d=new Float64Array(m);
+       for(let i=0;i<m;i++){s[i]=x[2*i];d[i]=x[2*i+1];}lift97(s,d,n,1,cL,cH);
+       for(let i=0;i<m;i++){o[i]=s[i];o[m+i]=d[i];}},
+      inv(y,n,o){const m=n>>1,s=new Float64Array(m),d=new Float64Array(m);
+       for(let i=0;i<m;i++){s[i]=y[i];d[i]=y[m+i];}lift97(s,d,n,-1,cL,cH);
+       for(let i=0;i<m;i++){o[2*i]=s[i];o[2*i+1]=d[i];}}}
+};
+// 2D pass on region rw x rh of plane (width W). dir: 'h' rows, 'v' columns; inv: inverse
+function pass(p,W,rw,rh,dir,kern,inv){const n=dir==='h'?rw:rh,cnt=dir==='h'?rh:rw;
+ const a=new Float64Array(n),b=new Float64Array(n),k=K[kern];
+ for(let j=0;j<cnt;j++){
+  for(let i=0;i<n;i++)a[i]=dir==='h'?p[j*W+i]:p[i*W+j];
+  inv?k.inv(a,n,b):k.fwd(a,n,b);
+  for(let i=0;i<n;i++){if(dir==='h')p[j*W+i]=b[i];else p[i*W+j]=b[i];}}}
+return {pass,cL,cH};
+})();
+
+
+{
+const $=id=>document.getElementById(id);
+const TAPS={
+ haar:{n:"Haar",lo:[0.5,0.5],hi:[1,-1],note:"Tiefpass (a+b)/2, Hochpass b−a"},
+ w53:{n:"LeGall 5/3",lo:[0.75,0.25,-0.125],hi:[1,-0.5]},
+ w97:{n:"CDF 9/7",lo:[0.6029490182,0.2668641184,-0.0782232665,-0.0168641184,0.0267487574],hi:[1.1150870525,-0.5912717631,-0.0575435262,0.0912717631]}};
+const sub=n=>String(n).split('').map(c=>'₀₁₂₃₄₅₆₇₈₉'[c]).join('');
+let src=null,W=0,H=0,states=[],cur=1,timer=null;
+
+function testImage(){const c=document.createElement('canvas');c.width=512;c.height=320;const g=c.getContext('2d');
+ const sky=g.createLinearGradient(0,0,0,200);sky.addColorStop(0,'#1c3c78');sky.addColorStop(1,'#f0a060');g.fillStyle=sky;g.fillRect(0,0,512,320);
+ g.fillStyle='#ffe9a0';g.beginPath();g.arc(150,150,42,0,7);g.fill();
+ g.fillStyle='#2b2f3a';g.beginPath();g.moveTo(0,230);[[60,170],[120,210],[190,140],[260,220],[300,190],[330,230]].forEach(p=>g.lineTo(...p));g.lineTo(330,320);g.lineTo(0,320);g.fill();
+ g.fillStyle='#3d6b3a';g.fillRect(0,262,330,58);
+ for(let i=0;i<14;i++){g.fillStyle=i%2?'#fff':'#c0201a';g.fillRect(12+i*8,276,8,34);}
+ g.fillStyle='#fff';g.font='bold 46px Inter, sans-serif';g.fillText('HFF',200,305);
+ const id=g.getImageData(332,0,180,320),d=id.data;   // Zonenplatte
+ for(let y=0;y<320;y++)for(let x=0;x<180;x++){const dx=x-90,dy=y-160,v=127.5+127.5*Math.cos((dx*dx+dy*dy)*0.012);const i=(y*180+x)*4;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}
+ g.putImageData(id,332,0);g.fillStyle='#000';g.fillRect(330,0,2,320);return c;}
+
+function load(img){const s=Math.min(1,512/img.width,512/img.height);
+ W=Math.max(64,Math.floor(img.width*s/64)*64);H=Math.max(64,Math.floor(img.height*s/64)*64);
+ const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');
+ const sw=W/s,sh=H/s;g.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,0,0,W,H);
+ src=g.getImageData(0,0,W,H).data;compute();}
+
+function labelsFor(k,st){ // st: 0 = nach vollständiger Stufe k, 'h' = nach Zeilenfilter von Stufe k
+ const L=[];const full=st==='h'?k-1:k;
+ for(let j=1;j<=full;j++){const w=W>>j,h=H>>j;L.push([w,0,w,h,'HL'+sub(j)],[0,h,w,h,'LH'+sub(j)],[w,h,w,h,'HH'+sub(j)]);}
+ if(st==='h'){const w=W>>(k-1),h=H>>(k-1);L.push([0,0,w/2,h,'L'+sub(k)],[w/2,0,w/2,h,'H'+sub(k)]);return {L,ax:w/2,ay:h,reg:[0,0,w,h]};}
+ if(k>0){const w=W>>k,h=H>>k;L.push([0,0,w,h,'LL'+sub(k)]);return {L,ax:w,ay:h};}
+ return {L:[[0,0,W,H,'Original']],ax:W,ay:H};}
+
+function compute(){stop();const kern=$('wl').value,lv=+$('lv').value,gray=$('col').value==='y';
+ const N=W*H,pl=[0,1,2].map(()=>new Float64Array(N));
+ for(let i=0;i<N;i++){const r=src[4*i],g=src[4*i+1],b=src[4*i+2];
+  if(gray){const y=Math.round(.2126*r+.7152*g+.0722*b)-128;pl[0][i]=pl[1][i]=pl[2][i]=y;}else{pl[0][i]=r-128;pl[1][i]=g-128;pl[2][i]=b-128;}}
+ const orig=pl.map(p=>p.slice());const np=gray?1:3;
+ const snap=(meta,o)=>states.push(Object.assign({data:pl.map(p=>Float32Array.from(p))},meta,o));
+ states=[];snap(labelsFor(0,0),{t:'Eingangsbild',ph:'a',short:'Original'});
+ const nm=TAPS[kern].n;
+ for(let k=1;k<=lv;k++){const w=W>>(k-1),h=H>>(k-1);
+  for(let c=0;c<np;c++)WL.pass(pl[c],W,w,h,'h',kern,0);if(gray){pl[1].set(pl[0]);pl[2].set(pl[0]);}
+  snap(labelsFor(k,'h'),{ph:'a',k,dir:'h',reg:[0,0,w,h],short:`S${k} Zeilen`,
+   t:`Stufe ${k}: Zeilen filtern`,s:`${nm} horizontal auf ${w}×${h}`,
+   d:`Jede Zeile des ${k===1?'Bildes':'LL'+sub(k-1)} wird mit Tief- und Hochpass gefiltert und um den Faktor 2 unterabgetastet. Links landet die geglättete Hälfte L${sub(k)}, rechts die horizontalen Details H${sub(k)} – senkrechte Kanten leuchten dort auf.`});
+  for(let c=0;c<np;c++)WL.pass(pl[c],W,w,h,'v',kern,0);if(gray){pl[1].set(pl[0]);pl[2].set(pl[0]);}
+  snap(labelsFor(k,0),{ph:'a',k,dir:'v',reg:[0,0,w,h],short:`S${k} Spalten`,
+   t:`Stufe ${k}: Spalten filtern`,s:`${nm} vertikal auf ${w}×${h}`,
+   d:`Jetzt dasselbe für die Spalten beider Hälften. Es entstehen vier Teilbänder: LL${sub(k)} (verkleinertes Bild, ${w/2}×${h/2}), HL${sub(k)} (senkrechte Kanten), LH${sub(k)} (waagerechte Kanten) und HH${sub(k)} (Diagonalen, Rauschen).${k<lv?` Nur LL${sub(k)} wird in Stufe ${k+1} weiter zerlegt.`:' Das ist die fertige Zerlegung, wie sie (nach Quantisierung) im Codestream steht.'}`});}
+ for(let k=lv;k>=1;k--){const w=W>>(k-1),h=H>>(k-1);
+  for(let c=0;c<np;c++)WL.pass(pl[c],W,w,h,'v',kern,1);if(gray){pl[1].set(pl[0]);pl[2].set(pl[0]);}
+  snap(labelsFor(k,'h'),{ph:'s',k,dir:'v',reg:[0,0,w,h],short:`S${k} Spalten⁻¹`,
+   t:`Stufe ${k} zurück: Spalten`,s:`inverser ${nm} vertikal`,
+   d:`Synthese: LL${sub(k)} und LH${sub(k)} werden spaltenweise hochgetastet und zu L${sub(k)} vereint, HL${sub(k)} und HH${sub(k)} zu H${sub(k)}.`});
+  for(let c=0;c<np;c++)WL.pass(pl[c],W,w,h,'h',kern,1);if(gray){pl[1].set(pl[0]);pl[2].set(pl[0]);}
+  snap(labelsFor(k-1,0),{ph:'s',k,dir:'h',reg:[0,0,w,h],short:k>1?`S${k} Zeilen⁻¹`:'Rekonstruktion',
+   t:k>1?`Stufe ${k} zurück: Zeilen`:'Rekonstruiertes Bild',s:`inverser ${nm} horizontal`,
+   d:k>1?`L${sub(k)} und H${sub(k)} werden zeilenweise zusammengesetzt – es entsteht wieder LL${sub(k-1)} mit ${w}×${h} Pixeln, doppelt so groß wie vorher.${k-1===1&&lv>1?' Bei einem 4K-DCP wäre das bereits die 2K-Fassung.':''}`:`Die letzte Zeilensynthese liefert das Bild in voller Größe ${W}×${H} zurück.`});}
+ let e=0;for(let c=0;c<3;c++)for(let i=0;i<N;i++)e=Math.max(e,Math.abs(pl[c][i]-orig[c][i]));
+ $('rerr').textContent=e===0?'0 – bitgenau':e.toExponential(1)+(kern==='w97'?' (Gleitkomma-Rundung)':'');
+ states.forEach(render);buildChain();show(Math.min(cur,states.length-1)||1);}
+
+function render(st){const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),id=g.createImageData(W,H),d=id.data,gain=+$('gain').value;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=y*W+x,ap=x<st.ax&&y<st.ay;
+  for(let ch=0;ch<3;ch++){const v=st.data[ch][i];d[4*i+ch]=ap?v+128:128+gain*v;}d[4*i+3]=255;}
+ g.putImageData(id,0,0);st.img=c;}
+
+function draw(cv,st,hi){cv.width=W;cv.height=H;const g=cv.getContext('2d');g.drawImage(st.img,0,0);
+ const fs=Math.max(11,Math.round(W/34));g.font=`600 ${fs}px Inter, sans-serif`;g.textBaseline='top';
+ st.L.forEach(([x,y,w,h,n])=>{g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=Math.max(1,W/400);g.strokeRect(x+.5,y+.5,w-1,h-1);
+  if(w>=fs*2.2&&h>=fs*1.4){const tw=g.measureText(n).width;g.fillStyle='rgba(0,0,0,.6)';g.fillRect(x+3,y+3,tw+8,fs+6);g.fillStyle='#fff';g.fillText(n,x+7,y+6);}});
+ if(hi){const [x,y,w,h]=hi;g.strokeStyle='#e8251a';g.lineWidth=Math.max(2,W/170);g.setLineDash([W/50,W/90]);g.strokeRect(x+2,y+2,w-4,h-4);g.setLineDash([]);}}
+
+function show(i){cur=Math.max(1,Math.min(states.length-1,i));const a=states[cur-1],b=states[cur];
+ draw($('cA'),a,b.reg);draw($('cB'),b,b.reg);
+ $('opT').textContent=b.t;$('opS').textContent=b.s;$('desc').innerHTML=`<b>${b.ph==='a'?'Analyse':'Synthese'} · Schritt ${cur} von ${states.length-1}.</b> ${b.d}`;
+ $('capA').textContent=a.short;$('capB').textContent=`${W}×${H} Koeffizienten`;
+ document.querySelectorAll('.th').forEach(t=>t.classList.toggle('on',+t.dataset.i===cur));
+ const on=document.querySelector('.th.on');if(on)on.scrollIntoView({block:'nearest',inline:'nearest'});}
+
+function thumb(i){const st=states[i];return `<button class="th" data-i="${i}" aria-label="${st.t}"><canvas data-t="${i}"></canvas><small>${st.short}</small></button>`;}
+function buildChain(){const n=+$('lv').value,A=[],S=[];for(let i=0;i<=2*n;i++)A.push(thumb(i));for(let i=4*n;i>2*n;i--)S.push(thumb(i));
+ $('chain').innerHTML=`<div class="row"><span class="lab">Zerlegen →</span>${A.join('<span class="ar">→</span>')}<span class="ar turn">⤵</span></div>
+ <div class="row"><span class="lab">Zusammen­setzen ←</span>${S.join('<span class="ar">←</span>')}<span class="ar">←</span><span class="turn" style="flex:none;width:92px;text-align:center;font-size:22px">⤴</span></div>`;
+ // Synthesezeile steht unter ihren Analyse-Pendants: rechts beginnen, nach links laufen
+ document.querySelectorAll('canvas[data-t]').forEach(c=>{const st=states[+c.dataset.t];c.width=88;c.height=Math.round(88*H/W);
+  const g=c.getContext('2d');g.drawImage(st.img,0,0,c.width,c.height);g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1;
+  const s=c.width/W;st.L.forEach(([x,y,w,h])=>g.strokeRect(x*s+.5,y*s+.5,w*s-1,h*s-1));});
+ document.querySelectorAll('.th').forEach(t=>t.onclick=()=>{stop();show(+t.dataset.i||1);});}
+
+function taps(){const t=TAPS[$('wl').value],m=Math.max(t.lo.length,t.hi.length);let r='';
+ for(let i=0;i<m;i++)r+=`<tr><td>n = ±${i}</td><td>${t.lo[i]!==undefined?t.lo[i]:''}</td><td>${t.hi[i]!==undefined?t.hi[i]:''}</td></tr>`;
+ $('taps').innerHTML=`<table><thead><tr><th>${t.n}</th><th>Tiefpass</th><th>Hochpass</th></tr></thead><tbody>${r}</tbody></table>`+(t.note?`<p class="mute" style="font-size:13px">${t.note}; nicht symmetrisch um eine Mitte, sondern ein Paar.</p>`:`<p class="mute" style="font-size:13px">Länge: ${2*t.lo.length-1} bzw. ${2*t.hi.length-1} Taps.</p>`);}
+
+function stop(){clearInterval(timer);timer=null;$('play').textContent='▶ Abspielen';}
+$('play').onclick=()=>{if(timer)return stop();if(cur>=states.length-1)show(1);$('play').textContent='❚❚ Pause';
+ timer=setInterval(()=>{if(cur>=states.length-1)return stop();show(cur+1);},1400);};
+$('prev').onclick=()=>{stop();show(cur-1);};$('next').onclick=()=>{stop();show(cur+1);};
+document.addEventListener('keydown',e=>{if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;if(e.key==='ArrowRight'){stop();show(cur+1);}if(e.key==='ArrowLeft'){stop();show(cur-1);}});
+['wl','lv','col'].forEach(id=>$(id).onchange=()=>{cur=1;taps();compute();});
+$('gain').oninput=()=>{states.forEach(render);buildChain();show(cur);};
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{cur=1;load(im);URL.revokeObjectURL(u);};im.src=u;};
+taps();
+const start=()=>load(testImage());document.fonts?document.fonts.ready.then(start):start();
+}
+</script>
+</body></html>
